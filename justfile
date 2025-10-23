@@ -37,6 +37,11 @@ modernize:
     @echo "Running go-modernize..."
     modernize -fix -test ./...
 
+# Run goreportcard-cli
+goreportcard:
+    @echo "Running goreportcard-cli..."
+    goreportcard-cli -v
+
 # Build the binary
 build:
     @echo "Building {{APP_NAME}}..."
@@ -78,8 +83,8 @@ test-force:
     go clean -testcache
     @just test
 
-# Check code quality (modernize, fmt, vet, lint)
-check: modernize fmt vet lint
+# Check code quality (modernize, fmt, vet, lint, goreportcard)
+check: modernize fmt vet lint goreportcard
 
 # Install the binary using go install
 install:

@@ -35,6 +35,27 @@ if command_exists go; then
   else
     log_warning 'Failed to install go-modernize'
   fi
+
+  # Install goreportcard-cli
+  log_info 'Installing goreportcard-cli...'
+  if command_exists goreportcard-cli; then
+    log_success 'goreportcard-cli already installed'
+  else
+    TEMP_DIR=$(mktemp -d)
+    if git clone https://github.com/gojp/goreportcard.git "$TEMP_DIR/goreportcard" >/dev/null 2>&1; then
+      cd "$TEMP_DIR/goreportcard"
+      if make install >/dev/null 2>&1 && go install ./cmd/goreportcard-cli >/dev/null 2>&1; then
+        log_success 'goreportcard-cli installed'
+      else
+        log_warning 'Failed to install goreportcard-cli'
+      fi
+      cd - >/dev/null 2>&1
+      rm -rf "$TEMP_DIR"
+    else
+      log_warning 'Failed to clone goreportcard repository'
+      rm -rf "$TEMP_DIR"
+    fi
+  fi
 else
   log_error 'Go not found! Please install Go 1.25 or later'
   exit 1
@@ -86,7 +107,8 @@ cat <<'TXT'
     just fmt            - Format code
     just vet            - Run go vet
     just modernize      - Run go-modernize
-    just check          - Run all quality checks (modernize, fmt, vet, lint)
+    just goreportcard   - Run goreportcard-cli
+    just check          - Run all quality checks (modernize, fmt, vet, lint, goreportcard)
 
  Running:
     just demo           - Run with demo_script_example.md
