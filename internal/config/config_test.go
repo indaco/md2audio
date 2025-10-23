@@ -91,6 +91,7 @@ func TestConfigPrint(t *testing.T) {
 			name: "standard config",
 			config: Config{
 				MarkdownFile: "test.md",
+				Provider:     "say",
 				Voice:        "Kate",
 				Rate:         180,
 				Format:       "aiff",
@@ -109,6 +110,7 @@ func TestConfigPrint(t *testing.T) {
 			name: "different voice and format",
 			config: Config{
 				MarkdownFile: "script.md",
+				Provider:     "say",
 				Voice:        "Samantha",
 				Rate:         170,
 				Format:       "m4a",
@@ -160,6 +162,7 @@ func TestConfigPrint(t *testing.T) {
 func TestConfigPrintFormat(t *testing.T) {
 	cfg := Config{
 		MarkdownFile: "test.md",
+		Provider:     "say",
 		Voice:        "Kate",
 		Rate:         180,
 		Format:       "aiff",
@@ -235,6 +238,7 @@ func TestConfigValidate(t *testing.T) {
 			name: "valid file mode",
 			config: Config{
 				MarkdownFile: "test.md",
+				Provider:     "say",
 				ListVoices:   false,
 			},
 			expectError: false,
@@ -243,6 +247,7 @@ func TestConfigValidate(t *testing.T) {
 			name: "valid directory mode",
 			config: Config{
 				InputDir:   "./docs",
+				Provider:   "say",
 				ListVoices: false,
 			},
 			expectError: false,
@@ -272,7 +277,51 @@ func TestConfigValidate(t *testing.T) {
 			config: Config{
 				MarkdownFile: "",
 				InputDir:     "",
+				Provider:     "say",
 				ListVoices:   true,
+			},
+			expectError: false,
+		},
+		{
+			name: "valid say provider",
+			config: Config{
+				MarkdownFile: "test.md",
+				Provider:     "say",
+			},
+			expectError: false,
+		},
+		{
+			name: "valid elevenlabs provider with voice ID",
+			config: Config{
+				MarkdownFile:      "test.md",
+				Provider:          "elevenlabs",
+				ElevenLabsVoiceID: "21m00Tcm4TlvDq8ikWAM",
+			},
+			expectError: false,
+		},
+		{
+			name: "elevenlabs provider without voice ID",
+			config: Config{
+				MarkdownFile: "test.md",
+				Provider:     "elevenlabs",
+			},
+			expectError: true,
+			errorMsg:    "ElevenLabs voice ID is required",
+		},
+		{
+			name: "invalid provider name",
+			config: Config{
+				MarkdownFile: "test.md",
+				Provider:     "invalid-provider",
+			},
+			expectError: true,
+			errorMsg:    "invalid provider",
+		},
+		{
+			name: "elevenlabs list voices without voice ID is ok",
+			config: Config{
+				Provider:   "elevenlabs",
+				ListVoices: true,
 			},
 			expectError: false,
 		},

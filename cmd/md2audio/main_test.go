@@ -66,6 +66,7 @@ func TestRunListVoices(t *testing.T) {
 	}
 
 	cfg := config.Config{
+		Provider:   "say",
 		ListVoices: true,
 	}
 
@@ -94,6 +95,7 @@ This is test content for audio generation.
 	outputDir := filepath.Join(tmpDir, "output")
 
 	cfg := config.Config{
+		Provider:     "say",
 		MarkdownFile: mdFile,
 		OutputDir:    outputDir,
 		Voice:        "Kate",
@@ -132,6 +134,7 @@ Content for test.
 	outputDir := filepath.Join(tmpDir, "audio_output")
 
 	cfg := config.Config{
+		Provider:  "say",
 		InputDir:  tmpDir,
 		OutputDir: outputDir,
 		Voice:     "Kate",
@@ -156,6 +159,7 @@ func TestRunNonExistentFile(t *testing.T) {
 	nonExistent := filepath.Join(tmpDir, "nonexistent.md")
 
 	cfg := config.Config{
+		Provider:     "say",
 		MarkdownFile: nonExistent,
 		OutputDir:    filepath.Join(tmpDir, "output"),
 		Voice:        "Kate",
@@ -174,6 +178,7 @@ func TestRunEmptyDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg := config.Config{
+		Provider:  "say",
 		InputDir:  tmpDir,
 		OutputDir: filepath.Join(tmpDir, "output"),
 		Voice:     "Kate",

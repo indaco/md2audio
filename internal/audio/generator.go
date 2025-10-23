@@ -1,8 +1,8 @@
 package audio
 
 import (
+	"context"
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/indaco/md2audio/internal/parser"
 	"github.com/indaco/md2audio/internal/text"
+	"github.com/indaco/md2audio/internal/tts"
 )
 
 // GeneratorConfig holds configuration for audio generation
@@ -19,6 +20,7 @@ type GeneratorConfig struct {
 	Format    string
 	Prefix    string
 	OutputDir string
+	Provider  tts.Provider // TTS provider to use
 }
 
 // Generator handles audio file generation
@@ -45,62 +47,67 @@ func ListAvailableVoices() error {
 
 // Generate generates an audio file for a section
 func (g *Generator) Generate(section parser.Section, index int) error {
-	safeTitle := text.SanitizeFilename(section.Title)
-
-	var outputPath string
-	if g.config.Format == "m4a" {
-		// Start with aiff, will convert later
-		outputPath = filepath.Join(g.config.OutputDir, fmt.Sprintf("%s_%02d_%s.aiff", g.config.Prefix, index, safeTitle))
-	} else {
-		outputPath = filepath.Join(g.config.OutputDir, fmt.Sprintf("%s_%02d_%s.%s", g.config.Prefix, index, safeTitle, g.config.Format))
+	if g.config.Provider == nil {
+		return fmt.Errorf("no TTS provider configured")
 	}
 
-	// Determine speaking rate
-	speakingRate := g.config.Rate
+	safeTitle := text.SanitizeFilename(section.Title)
 
+	// Build output path based on format
+	var outputPath string
+	fileExt := g.config.Format
+
+	// For say provider with m4a, we need to use .aiff initially
+	// For elevenlabs, use the format directly (it outputs mp3)
+	if g.config.Provider.Name() == "say" {
+		if g.config.Format == "m4a" {
+			fileExt = "aiff" // say provider will convert after generation
+		}
+	} else if g.config.Provider.Name() == "elevenlabs" {
+		fileExt = "mp3" // ElevenLabs outputs MP3
+	}
+
+	outputPath = filepath.Join(g.config.OutputDir, fmt.Sprintf("%s_%02d_%s.%s", g.config.Prefix, index, safeTitle, fileExt))
+
+	// Determine speaking rate (only used by say provider)
+	speakingRate := g.config.Rate
+	var targetDuration *float64
 	if section.HasTiming {
-		// Calculate required rate to fit the duration
+		// Calculate required rate to fit the duration (for say provider)
 		estimatedRate := estimateSpeakingRate(section.Content, section.Duration)
 		speakingRate = estimatedRate
 		fmt.Printf("Target duration: %.1fs, Calculated rate: %d wpm\n", section.Duration, speakingRate)
+
+		// Also pass target duration for providers that support it (e.g., ElevenLabs)
+		targetDuration = &section.Duration
 	}
 
-	fmt.Printf("Generating: %s\n", outputPath)
-
-	// Generate audio using say command
-	cmd := exec.Command("say", "-v", g.config.Voice, "-r", fmt.Sprintf("%d", speakingRate), "-o", outputPath, section.Content)
-
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("error generating audio: %w\n%s", err, string(output))
+	// Build TTS request
+	request := tts.GenerateRequest{
+		Text:           section.Content,
+		Voice:          g.config.Voice,
+		OutputPath:     outputPath,
+		Rate:           &speakingRate,
+		Format:         g.config.Format,
+		TargetDuration: targetDuration,
 	}
 
-	fmt.Printf("✓ Created: %s\n", outputPath)
-
-	// Measure actual duration
-	actualDuration := getAudioDuration(outputPath)
-	if actualDuration > 0 {
-		fmt.Printf("  Actual duration: %.2fs", actualDuration)
-		if section.HasTiming {
-			diff := actualDuration - section.Duration
-			fmt.Printf(" (target: %.1fs, diff: %+.2fs)\n", section.Duration, diff)
-		} else {
-			fmt.Printf("\n")
-		}
+	// Generate audio using TTS provider
+	ctx := context.Background()
+	finalPath, err := g.config.Provider.Generate(ctx, request)
+	if err != nil {
+		return fmt.Errorf("error generating audio: %w", err)
 	}
 
-	// Convert to m4a if requested
-	if g.config.Format == "m4a" {
-		m4aPath := strings.Replace(outputPath, ".aiff", ".m4a", 1)
-		convertCmd := exec.Command("afconvert", "-f", "mp4f", "-d", "aac", outputPath, m4aPath)
-
-		if output, err := convertCmd.CombinedOutput(); err != nil {
-			fmt.Printf("Warning: Could not convert to m4a: %v\n%s\n", err, string(output))
-		} else {
-			// Remove the original aiff file
-			if err := os.Remove(outputPath); err != nil {
-				fmt.Printf("Warning: Could not remove temporary aiff file: %v\n", err)
+	// Show timing info if applicable
+	if section.HasTiming {
+		// Try to get actual duration (provider-dependent)
+		if g.config.Provider.Name() == "say" {
+			actualDuration := getAudioDuration(finalPath)
+			if actualDuration > 0 {
+				diff := actualDuration - section.Duration
+				fmt.Printf("  (target: %.1fs, diff: %+.2fs)\n", section.Duration, diff)
 			}
-			fmt.Printf("✓ Converted to: %s\n", m4aPath)
 		}
 	}
 

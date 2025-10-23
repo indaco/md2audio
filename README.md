@@ -28,24 +28,33 @@
   </a>
 </p>
 
-Convert markdown H2 sections to individual audio files using macOS `say` command.
+Convert markdown H2 sections to individual audio files using multiple TTS (Text-to-Speech) providers including macOS `say` command and ElevenLabs API.
 
 ## Features
 
+- **Multiple TTS Providers**: Support for macOS `say` command and ElevenLabs API
 - Process single files or entire directories recursively
 - Automatically extracts H2 sections from markdown files
 - Generates separate audio file for each section
 - Mirror directory structure for batch processing
 - Configurable voice (British, US, Australian, etc.)
-- Adjustable speaking rate for clarity
-- Supports AIFF and M4A output formats
+- Adjustable speaking rate for clarity (say provider)
+- Supports multiple output formats (AIFF, M4A, MP3)
 - Clean filename generation from section titles
 - Target duration control with timing annotations
+- Environment variable and .env file support for API keys
 
 ## Prerequisites
 
-- macOS (uses `say` command)
+### For macOS say Provider
+- macOS (uses built-in `say` command)
 - Go 1.25 or later (to build the tool)
+
+### For ElevenLabs Provider
+- Any OS (Windows, macOS, Linux)
+- Go 1.25 or later (to build the tool)
+- ElevenLabs API key ([Get one here](https://elevenlabs.io/))
+- Set `ELEVENLABS_API_KEY` environment variable or create `.env` file
 
 ## Installation
 
@@ -69,15 +78,58 @@ The binary will be created in the current directory. You can move it to a locati
 sudo mv md2audio /usr/local/bin/
 ```
 
+## TTS Providers
+
+md2audio supports multiple Text-to-Speech providers. Choose the one that best fits your needs:
+
+### macOS say (Default)
+
+- **Platform**: macOS only
+- **Cost**: Free (built-in)
+- **Setup**: No configuration needed
+- **Quality**: Good for local development and testing
+- **Formats**: AIFF, M4A
+- **Voices**: ~70 voices in various languages
+
+### ElevenLabs
+
+- **Platform**: Cross-platform (works on any OS)
+- **Cost**: Paid API ([Pricing](https://elevenlabs.io/pricing))
+- **Setup**: Requires API key
+- **Quality**: Premium, highly realistic voices
+- **Formats**: MP3
+- **Voices**: Multiple professional voices with emotional control
+
+#### Setting up ElevenLabs
+
+1. Get your API key from [ElevenLabs](https://elevenlabs.io/)
+
+2. Set the environment variable:
+   ```bash
+   export ELEVENLABS_API_KEY='your-api-key'
+   ```
+
+3. Or create a `.env` file in your project directory:
+   ```bash
+   echo 'ELEVENLABS_API_KEY=your-api-key' > .env
+   ```
+
+4. List available voices:
+   ```bash
+   ./md2audio -provider elevenlabs -list-voices
+   ```
+
 ## Usage
 
 ### Basic Examples
 
+#### Using macOS say Provider (Default)
+
 ```bash
-# List available voices
+# List available voices for say provider
 ./md2audio -list-voices
 
-# Process a single markdown file
+# Process a single markdown file with voice preset
 ./md2audio -f script.md -p british-female
 
 # Process entire directory recursively
@@ -93,19 +145,59 @@ sudo mv md2audio /usr/local/bin/
 ./md2audio -f script.md -o ./voiceovers -prefix demo
 ```
 
+#### Using ElevenLabs Provider
+
+```bash
+# List available ElevenLabs voices
+./md2audio -provider elevenlabs -list-voices
+
+# Process a single file with ElevenLabs
+./md2audio -provider elevenlabs \
+  -elevenlabs-voice-id 21m00Tcm4TlvDq8ikWAM \
+  -f script.md
+
+# Process entire directory with ElevenLabs
+./md2audio -provider elevenlabs \
+  -elevenlabs-voice-id 21m00Tcm4TlvDq8ikWAM \
+  -d ./docs \
+  -o ./audio_output
+
+# Use specific ElevenLabs model
+./md2audio -provider elevenlabs \
+  -elevenlabs-voice-id YOUR_VOICE_ID \
+  -elevenlabs-model eleven_multilingual_v2 \
+  -f script.md
+```
+
 ### Command Line Options
 
-| Flag           | Description                                   | Default             |
-| -------------- | --------------------------------------------- | ------------------- |
-| `-f`           | Input markdown file (use `-f` or `-d`)        | -                   |
-| `-d`           | Input directory (recursive, use `-f` or `-d`) | -                   |
-| `-o`           | Output directory                              | `./audio_sections`  |
-| `-p`           | Voice preset                                  | `Kate` (if not set) |
-| `-v`           | Specific voice name (overrides preset)        | -                   |
-| `-r`           | Speaking rate (lower = slower)                | `180`               |
-| `-format`      | Output format (`aiff` or `m4a`)               | `aiff`              |
-| `-prefix`      | Filename prefix                               | `section`           |
-| `-list-voices` | List all available voices                     | -                   |
+#### General Options
+
+| Flag           | Description                                   | Default            |
+| -------------- | --------------------------------------------- | ------------------ |
+| `-f`           | Input markdown file (use `-f` or `-d`)        | -                  |
+| `-d`           | Input directory (recursive, use `-f` or `-d`) | -                  |
+| `-o`           | Output directory                              | `./audio_sections` |
+| `-format`      | Output format                                 | `aiff`             |
+| `-prefix`      | Filename prefix                               | `section`          |
+| `-list-voices` | List all available voices for selected provider | -                |
+| `-provider`    | TTS provider (`say` or `elevenlabs`)          | `say`              |
+
+#### macOS say Provider Options
+
+| Flag | Description                            | Default                 |
+| ---- | -------------------------------------- | ----------------------- |
+| `-p` | Voice preset (see Voice Presets below) | `Kate` (if not set)     |
+| `-v` | Specific voice name (overrides `-p`)   | -                       |
+| `-r` | Speaking rate (lower = slower)         | `180`                   |
+
+#### ElevenLabs Provider Options
+
+| Flag                   | Description                          | Default                  |
+| ---------------------- | ------------------------------------ | ------------------------ |
+| `-elevenlabs-voice-id` | ElevenLabs voice ID (required)       | -                        |
+| `-elevenlabs-model`    | ElevenLabs model ID                  | `eleven_monolingual_v1`  |
+| `-elevenlabs-api-key`  | ElevenLabs API key (prefer env var)  | `ELEVENLABS_API_KEY` env |
 
 ### Voice Presets
 
@@ -141,14 +233,29 @@ This section has no timing specified, so it will use the default speaking rate (
 - `(0-8s)` - Range format, uses end time (8 seconds)
 - `(15 seconds)` - Also works with "seconds" spelled out
 
-**How it works:**
+**How it works (macOS say provider only):**
 
 - The script counts the words in your text
 - Calculates the required words-per-minute (WPM) to fit the target duration
 - Automatically adjusts the speaking rate for that section
 - Shows you the actual duration vs target after generation
 
-**Note on timing accuracy:** Due to limitations in macOS's `say` command rate handling, the actual duration may differ from the target (typically within 1-3 seconds). The tool applies a 0.95 adjustment factor to improve accuracy, but exact matches are not guaranteed. Test with your content and adjust timing annotations as needed.
+**Important Notes:**
+
+- **Timing is supported with both providers**, but with different accuracy:
+
+  - **macOS say provider**: Uses `-r` (rate) parameter for speed control
+    - Very wide range of speaking rates (90-360 wpm)
+    - Actual duration may differ from target (typically within 1-3 seconds)
+    - Applies 0.95 adjustment factor for better accuracy
+
+  - **ElevenLabs provider**: Uses `speed` parameter (NEW!)
+    - Limited range: 0.7x (slower) to 1.2x (faster) of natural pace
+    - More accurate natural-sounding speech
+    - If target duration requires speed outside this range, audio will be clamped
+    - Example: 5s target → 5.75s actual (within 15% for typical content)
+
+- **Timing accuracy tip**: Test with your content and adjust timing annotations as needed. For very tight timing requirements, consider the say provider's wider speed range.
 
 ## Directory Processing
 
@@ -281,22 +388,42 @@ The codebase is organized into modular packages for better maintainability and t
 ```
 md2audio/
 ├── cmd/md2audio/        # Main entry point (orchestration only)
-│   ├── main.go
+│   └── main.go
 ├── internal/
 │   ├── config/          # Configuration and CLI flags
 │   ├── parser/          # Markdown parsing and file discovery
 │   ├── text/            # Text processing utilities
-│   ├── audio/           # Audio generation logic
-└── └── processor/       # File and directory processing (NEW)
+│   ├── env/             # Environment variable and .env file loading
+│   ├── tts/             # TTS provider abstraction
+│   │   ├── provider.go  # Provider interface definition
+│   │   ├── say/         # macOS say provider implementation
+│   │   └── elevenlabs/  # ElevenLabs API provider implementation
+│   ├── audio/           # Audio generation orchestration
+│   └── processor/       # File and directory processing
 ```
 
 ### Key Packages
 
-- **internal/config** - Handles command-line arguments, voice presets, and configuration validation
+- **internal/config** - Handles command-line arguments, voice presets, provider selection, and configuration validation
 - **internal/parser** - Extracts H2 sections from markdown with timing annotations, discovers markdown files recursively
 - **internal/text** - Provides markdown cleaning and filename sanitization
-- **internal/audio** - Core audio generation, rate calculation, and format conversion
+- **internal/env** - Pure Go .env file loader with environment variable support
+- **internal/tts** - Provider interface for TTS abstraction, enabling multiple TTS backends
+- **internal/tts/say** - macOS say command provider with AIFF/M4A support
+- **internal/tts/elevenlabs** - ElevenLabs API client with HTTP mocking support for tests
+- **internal/audio** - Audio generation orchestration using TTS providers
 - **internal/processor** - Orchestrates file and directory processing with mirror structure support
+
+### Architecture
+
+The project uses a **provider pattern** for TTS services:
+
+1. **Provider Interface** (`internal/tts/provider.go`) - Defines the contract for TTS providers
+2. **Concrete Providers** - Implement the interface for specific TTS services
+3. **Factory Pattern** - Creates appropriate provider based on configuration
+4. **Dependency Injection** - Providers are injected into audio generator
+
+This architecture makes it easy to add new TTS providers (e.g., Google Cloud TTS, AWS Polly) by implementing the Provider interface.
 
 ## Contributing
 

@@ -32,10 +32,11 @@ More content here with timing.
 	outputDir := filepath.Join(tmpDir, "output")
 
 	cfg := config.Config{
-		Voice:  "Kate",
-		Rate:   180,
-		Format: "aiff",
-		Prefix: "test",
+		Provider: "say",
+		Voice:    "Kate",
+		Rate:     180,
+		Format:   "aiff",
+		Prefix:   "test",
 	}
 
 	err := ProcessFile(mdFile, outputDir, cfg)
@@ -72,10 +73,11 @@ func TestProcessFileInvalidMarkdown(t *testing.T) {
 	outputDir := filepath.Join(tmpDir, "output")
 
 	cfg := config.Config{
-		Voice:  "Kate",
-		Rate:   180,
-		Format: "aiff",
-		Prefix: "test",
+		Provider: "say",
+		Voice:    "Kate",
+		Rate:     180,
+		Format:   "aiff",
+		Prefix:   "test",
 	}
 
 	// Should not error, but should return 0 sections processed
@@ -91,10 +93,11 @@ func TestProcessFileNonExistent(t *testing.T) {
 	outputDir := filepath.Join(tmpDir, "output")
 
 	cfg := config.Config{
-		Voice:  "Kate",
-		Rate:   180,
-		Format: "aiff",
-		Prefix: "test",
+		Provider: "say",
+		Voice:    "Kate",
+		Rate:     180,
+		Format:   "aiff",
+		Prefix:   "test",
 	}
 
 	err := ProcessFile(mdFile, outputDir, cfg)
@@ -234,10 +237,11 @@ func TestProcessFileWithDifferentFormats(t *testing.T) {
 			outputDir := filepath.Join(tmpDir, "output")
 
 			cfg := config.Config{
-				Voice:  "Kate",
-				Rate:   180,
-				Format: tt.format,
-				Prefix: "test",
+				Provider: "say",
+				Voice:    "Kate",
+				Rate:     180,
+				Format:   tt.format,
+				Prefix:   "test",
 			}
 
 			err := ProcessFile(mdFile, outputDir, cfg)

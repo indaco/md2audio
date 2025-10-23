@@ -94,3 +94,5 @@ audio_output/
 # goreleaser:
 build
 dist/
+
+.env

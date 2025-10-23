@@ -16,6 +16,9 @@ var VoicePresets = map[string]string{
 	"indian-female":     "Veena",
 }
 
+// DefaultElevenLabsVoiceID is the default voice for ElevenLabs (Rachel)
+const DefaultElevenLabsVoiceID = "21m00Tcm4TlvDq8ikWAM"
+
 // Config holds the application configuration
 type Config struct {
 	MarkdownFile string
@@ -26,6 +29,12 @@ type Config struct {
 	Format       string
 	Prefix       string
 	ListVoices   bool
+
+	// TTS Provider configuration
+	Provider          string // "say" or "elevenlabs"
+	ElevenLabsVoiceID string // ElevenLabs voice ID
+	ElevenLabsModel   string // ElevenLabs model ID
+	ElevenLabsAPIKey  string // Optional: API key (prefer env var)
 }
 
 // Parse parses command-line flags and returns the configuration
@@ -36,52 +45,83 @@ func Parse() Config {
 	flag.StringVar(&config.InputDir, "d", "", "Input directory to process recursively (use -f or -d, not both)")
 	flag.StringVar(&config.OutputDir, "o", "./audio_sections", "Output directory for audio files")
 
+	// TTS Provider
+	flag.StringVar(&config.Provider, "provider", "say", "TTS provider: 'say' (macOS) or 'elevenlabs'")
+
+	// Say provider options
 	var preset string
-	flag.StringVar(&preset, "p", "", "Voice preset (british-female, british-male, us-female, us-male, australian-female, indian-female)")
-	flag.StringVar(&config.Voice, "v", "", "Specific voice name (overrides preset)")
-	flag.IntVar(&config.Rate, "r", 180, "Speaking rate (lower = slower)")
-	flag.StringVar(&config.Format, "format", "aiff", "Output audio format (aiff or m4a)")
+	flag.StringVar(&preset, "p", "", "Voice preset for say provider (british-female, british-male, us-female, us-male, australian-female, indian-female)")
+	flag.StringVar(&config.Voice, "v", "", "Specific voice name for say provider (overrides preset)")
+	flag.IntVar(&config.Rate, "r", 180, "Speaking rate for say provider (lower = slower)")
+
+	// ElevenLabs provider options
+	flag.StringVar(&config.ElevenLabsVoiceID, "elevenlabs-voice-id", "", "ElevenLabs voice ID (e.g., '21m00Tcm4TlvDq8ikWAM')")
+	flag.StringVar(&config.ElevenLabsModel, "elevenlabs-model", "eleven_monolingual_v1", "ElevenLabs model ID")
+	flag.StringVar(&config.ElevenLabsAPIKey, "elevenlabs-api-key", "", "ElevenLabs API key (prefer ELEVENLABS_API_KEY env var)")
+
+	// Common options
+	flag.StringVar(&config.Format, "format", "aiff", "Output audio format (aiff, m4a, mp3)")
 	flag.StringVar(&config.Prefix, "prefix", "section", "Prefix for output filenames")
 	flag.BoolVar(&config.ListVoices, "list-voices", false, "List all available voices and exit")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Markdown to Audio Generator\n")
-		fmt.Fprintf(os.Stderr, "Convert markdown H2 sections to audio files using macOS say command.\n\n")
+		fmt.Fprintf(os.Stderr, "Convert markdown H2 sections to audio files using TTS providers.\n\n")
 		fmt.Fprintf(os.Stderr, "Usage:\n")
 		fmt.Fprintf(os.Stderr, "  %s [options]\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		flag.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nExamples:\n")
-		fmt.Fprintf(os.Stderr, "  # Process a single file\n")
+		fmt.Fprintf(os.Stderr, "\nExamples (macOS say provider):\n")
+		fmt.Fprintf(os.Stderr, "  # Process a single file with say (default)\n")
 		fmt.Fprintf(os.Stderr, "  %s -f script.md -p british-female\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "  # Process entire directory recursively\n")
-		fmt.Fprintf(os.Stderr, "  %s -d ./docs -p british-female\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "  # Use specific voice with custom rate\n")
-		fmt.Fprintf(os.Stderr, "  %s -f script.md -v Kate -r 170\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "  # Generate m4a files instead of aiff\n")
+		fmt.Fprintf(os.Stderr, "  # Process directory with custom voice and rate\n")
+		fmt.Fprintf(os.Stderr, "  %s -d ./docs -v Kate -r 170\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  # Generate m4a files\n")
 		fmt.Fprintf(os.Stderr, "  %s -d ./docs -p british-female -format m4a\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "  # List all available voices\n")
+		fmt.Fprintf(os.Stderr, "  # List available say voices\n")
 		fmt.Fprintf(os.Stderr, "  %s -list-voices\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "Voice Presets:\n")
+		fmt.Fprintf(os.Stderr, "Examples (ElevenLabs provider):\n")
+		fmt.Fprintf(os.Stderr, "  # Use ElevenLabs with environment variable\n")
+		fmt.Fprintf(os.Stderr, "  export ELEVENLABS_API_KEY='your-key'\n")
+		fmt.Fprintf(os.Stderr, "  %s -provider elevenlabs -elevenlabs-voice-id 21m00Tcm4TlvDq8ikWAM -f script.md\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  # Use ElevenLabs with .env file\n")
+		fmt.Fprintf(os.Stderr, "  echo 'ELEVENLABS_API_KEY=your-key' > .env\n")
+		fmt.Fprintf(os.Stderr, "  %s -provider elevenlabs -elevenlabs-voice-id 21m00Tcm4TlvDq8ikWAM -d ./docs\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  # List ElevenLabs voices\n")
+		fmt.Fprintf(os.Stderr, "  %s -provider elevenlabs -list-voices\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Say Voice Presets:\n")
 		fmt.Fprintf(os.Stderr, "  british-female, british-male, us-female, us-male,\n")
 		fmt.Fprintf(os.Stderr, "  australian-female, indian-female\n")
 	}
 
 	flag.Parse()
 
-	// Determine voice to use
-	if config.Voice != "" {
-		// Explicit voice specified, use it
-	} else if preset != "" {
-		if voice, ok := VoicePresets[preset]; ok {
-			config.Voice = voice
-		} else {
-			fmt.Printf("Unknown preset: %s, using default voice 'Kate'\n", preset)
+	// Determine voice to use (only for say provider)
+	if config.Provider == "say" || config.Provider == "" {
+		if config.Voice != "" {
+			// Explicit voice specified, use it
+		} else if preset != "" {
+			if voice, ok := VoicePresets[preset]; ok {
+				config.Voice = voice
+			} else {
+				fmt.Printf("Unknown preset: %s, using default voice 'Kate'\n", preset)
+				config.Voice = "Kate"
+			}
+		} else if !config.ListVoices {
 			config.Voice = "Kate"
+			fmt.Println("No voice specified, using default: Kate")
 		}
-	} else {
-		config.Voice = "Kate"
-		fmt.Println("No voice specified, using default: Kate")
+	}
+
+	// Normalize provider name
+	if config.Provider == "" {
+		config.Provider = "say"
+	}
+
+	// Set default ElevenLabs voice if not specified and not listing voices
+	if config.Provider == "elevenlabs" && config.ElevenLabsVoiceID == "" && !config.ListVoices {
+		config.ElevenLabsVoiceID = DefaultElevenLabsVoiceID
+		fmt.Println("No ElevenLabs voice specified, using default: Rachel (21m00Tcm4TlvDq8ikWAM)")
 	}
 
 	return config
@@ -97,6 +137,18 @@ func (c Config) Validate() error {
 	// Check that at least one input is provided (unless listing voices)
 	if !c.ListVoices && c.MarkdownFile == "" && c.InputDir == "" {
 		return fmt.Errorf("either -f (file) or -d (directory) is required")
+	}
+
+	// Validate provider
+	if c.Provider != "say" && c.Provider != "elevenlabs" {
+		return fmt.Errorf("invalid provider %q: must be 'say' or 'elevenlabs'", c.Provider)
+	}
+
+	// Validate provider-specific requirements
+	if c.Provider == "elevenlabs" && !c.ListVoices {
+		if c.ElevenLabsVoiceID == "" {
+			return fmt.Errorf("ElevenLabs voice ID is required: use -elevenlabs-voice-id flag")
+		}
 	}
 
 	return nil
@@ -115,8 +167,18 @@ func (c Config) Print() {
 	} else {
 		fmt.Printf("  Markdown file: %s\n", c.MarkdownFile)
 	}
-	fmt.Printf("  Voice: %s\n", c.Voice)
-	fmt.Printf("  Rate: %d\n", c.Rate)
+	fmt.Printf("  TTS Provider: %s\n", c.Provider)
+
+	// Provider-specific configuration
+	switch c.Provider {
+	case "say":
+		fmt.Printf("  Voice: %s\n", c.Voice)
+		fmt.Printf("  Rate: %d\n", c.Rate)
+	case "elevenlabs":
+		fmt.Printf("  Voice ID: %s\n", c.ElevenLabsVoiceID)
+		fmt.Printf("  Model: %s\n", c.ElevenLabsModel)
+	}
+
 	fmt.Printf("  Format: %s\n", c.Format)
 	fmt.Printf("  Output directory: %s\n\n", c.OutputDir)
 }

@@ -8,7 +8,25 @@ import (
 	"github.com/indaco/md2audio/internal/audio"
 	"github.com/indaco/md2audio/internal/config"
 	"github.com/indaco/md2audio/internal/parser"
+	"github.com/indaco/md2audio/internal/tts"
+	"github.com/indaco/md2audio/internal/tts/elevenlabs"
+	"github.com/indaco/md2audio/internal/tts/say"
 )
+
+// createTTSProvider creates the appropriate TTS provider based on configuration
+func createTTSProvider(cfg config.Config) (tts.Provider, error) {
+	switch cfg.Provider {
+	case "say":
+		return say.NewProvider()
+	case "elevenlabs":
+		return elevenlabs.NewClient(elevenlabs.Config{
+			APIKey:  cfg.ElevenLabsAPIKey,
+			BaseURL: "", // Use default
+		})
+	default:
+		return nil, fmt.Errorf("unsupported TTS provider: %s", cfg.Provider)
+	}
+}
 
 // ProcessDirectory processes all markdown files in a directory recursively
 func ProcessDirectory(cfg config.Config) error {
@@ -86,13 +104,28 @@ func processSingleFile(markdownFile, outputDir string, cfg config.Config) (int, 
 		return 0, 0, fmt.Errorf("error creating output directory: %w", err)
 	}
 
+	// Create TTS provider
+	provider, err := createTTSProvider(cfg)
+	if err != nil {
+		return 0, 0, fmt.Errorf("error creating TTS provider: %w", err)
+	}
+
+	fmt.Printf("Using TTS provider: %s\n\n", provider.Name())
+
+	// Determine voice to use based on provider
+	voice := cfg.Voice
+	if cfg.Provider == "elevenlabs" {
+		voice = cfg.ElevenLabsVoiceID
+	}
+
 	// Create audio generator
 	generator := audio.NewGenerator(audio.GeneratorConfig{
-		Voice:     cfg.Voice,
+		Voice:     voice,
 		Rate:      cfg.Rate,
 		Format:    cfg.Format,
 		Prefix:    cfg.Prefix,
 		OutputDir: outputDir,
+		Provider:  provider,
 	})
 
 	// Generate audio for each section
