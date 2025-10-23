@@ -1,0 +1,181 @@
+package parser
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+
+	"github.com/indaco/md2audio/internal/text"
+)
+
+// Section represents a markdown section with title and content
+type Section struct {
+	Title     string
+	Content   string
+	Duration  float64 // Target duration in seconds
+	HasTiming bool    // Whether timing was specified
+}
+
+// ParseMarkdownFile parses a markdown file and extracts H2 sections
+func ParseMarkdownFile(filename string) ([]Section, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	content := string(data)
+
+	// Split content into lines for processing
+	lines := strings.Split(content, "\n")
+
+	// Pattern to match H2 headers
+	h2Pattern := regexp.MustCompile(`^##\s+(.+)$`)
+
+	// Pattern to extract timing from title: (0-8s) or (10s) or (8 seconds)
+	timingPattern := regexp.MustCompile(`\((\d+(?:\.\d+)?)\s*(?:-\s*(\d+(?:\.\d+)?))?\s*s(?:ec(?:ond)?s?)?\)`)
+
+	var sections []Section
+	var currentSection *Section
+	var contentLines []string
+
+	for _, line := range lines {
+		if match := h2Pattern.FindStringSubmatch(line); match != nil {
+			// Save previous section if exists
+			if currentSection != nil {
+				sectionText := strings.Join(contentLines, "\n")
+				sectionText = text.CleanMarkdown(sectionText)
+				if sectionText != "" {
+					currentSection.Content = sectionText
+					sections = append(sections, *currentSection)
+				}
+			}
+
+			// Start new section
+			titleWithTiming := strings.TrimSpace(match[1])
+			currentSection = &Section{
+				Title:     titleWithTiming,
+				HasTiming: false,
+			}
+
+			// Check for timing pattern in title
+			if timingMatch := timingPattern.FindStringSubmatch(titleWithTiming); timingMatch != nil {
+				if len(timingMatch) >= 3 && timingMatch[2] != "" {
+					// Range format: (0-8s) - use end time
+					if duration, err := parseFloat(timingMatch[2]); err == nil {
+						currentSection.Duration = duration
+						currentSection.HasTiming = true
+					}
+				} else if len(timingMatch) >= 2 {
+					// Single value format: (8s) or (10s)
+					if duration, err := parseFloat(timingMatch[1]); err == nil {
+						currentSection.Duration = duration
+						currentSection.HasTiming = true
+					}
+				}
+
+				// Remove timing from title for cleaner display
+				currentSection.Title = strings.TrimSpace(timingPattern.ReplaceAllString(titleWithTiming, ""))
+			}
+
+			// Reset content lines for new section
+			contentLines = []string{}
+		} else if currentSection != nil {
+			// Add line to current section content
+			contentLines = append(contentLines, line)
+		}
+	}
+
+	// Save last section
+	if currentSection != nil {
+		sectionText := strings.Join(contentLines, "\n")
+		sectionText = text.CleanMarkdown(sectionText)
+		if sectionText != "" {
+			currentSection.Content = sectionText
+			sections = append(sections, *currentSection)
+		}
+	}
+
+	return sections, nil
+}
+
+// parseFloat parses a string to float64
+func parseFloat(s string) (float64, error) {
+	var f float64
+	_, err := fmt.Sscanf(s, "%f", &f)
+	return f, err
+}
+
+// MarkdownFile represents a discovered markdown file with its relative path
+type MarkdownFile struct {
+	AbsPath  string // Absolute path to the file
+	RelPath  string // Relative path from base directory
+	BaseDir  string // Base directory that was scanned
+	FileName string // Just the filename without extension
+}
+
+// FindMarkdownFiles recursively finds all .md files in the given directory
+func FindMarkdownFiles(baseDir string) ([]MarkdownFile, error) {
+	var files []MarkdownFile
+
+	// Get absolute path of base directory
+	absBaseDir, err := filepath.Abs(baseDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	// Walk the directory tree
+	err = filepath.Walk(absBaseDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip directories
+		if info.IsDir() {
+			return nil
+		}
+
+		// Check if file has .md extension
+		if filepath.Ext(path) == ".md" {
+			// Get relative path from base directory
+			relPath, err := filepath.Rel(absBaseDir, path)
+			if err != nil {
+				return fmt.Errorf("failed to get relative path: %w", err)
+			}
+
+			// Get filename without extension
+			fileName := strings.TrimSuffix(filepath.Base(path), ".md")
+
+			files = append(files, MarkdownFile{
+				AbsPath:  path,
+				RelPath:  relPath,
+				BaseDir:  absBaseDir,
+				FileName: fileName,
+			})
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to walk directory: %w", err)
+	}
+
+	return files, nil
+}
+
+// GetOutputDir returns the output directory path for this markdown file
+// It creates a mirror structure based on the relative path
+func (mf MarkdownFile) GetOutputDir(baseOutputDir string) string {
+	// Get the directory containing the markdown file (relative to base)
+	relDir := filepath.Dir(mf.RelPath)
+
+	// If the file is in the root, use the filename as the directory
+	if relDir == "." {
+		return filepath.Join(baseOutputDir, mf.FileName)
+	}
+
+	// Otherwise, append the directory path and filename
+	return filepath.Join(baseOutputDir, relDir, mf.FileName)
+}

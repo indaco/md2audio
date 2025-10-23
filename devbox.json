@@ -1,0 +1,25 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.16.0/.schema/devbox.schema.json",
+  "packages": [
+    "git@latest",
+    "go@latest",
+    "golangci-lint@latest",
+    "just@latest",
+    "prek@latest"
+  ],
+  "env": {
+    "GOPATH": "$HOME/go/",
+    "PATH": "$PATH:$HOME/go/bin"
+  },
+  "shell": {
+    "init_hook": ["sh scripts/devbox-init.sh"],
+    "scripts": {
+      "build": ["just build"],
+      "lint": ["just lint"],
+      "modernize": ["just modernize"],
+      "test": ["just test"],
+      "check": ["just check"],
+      "demo": ["just demo"]
+    }
+  }
+}
