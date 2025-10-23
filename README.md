@@ -218,7 +218,7 @@ md2audio supports multiple Text-to-Speech providers. Choose the one that best fi
 | Flag                   | Description                         | Default                  |
 | ---------------------- | ----------------------------------- | ------------------------ |
 | `-elevenlabs-voice-id` | ElevenLabs voice ID (required)      | -                        |
-| `-elevenlabs-model`    | ElevenLabs model ID                 | `eleven_monolingual_v1`  |
+| `-elevenlabs-model`    | ElevenLabs model ID                 | `eleven_multilingual_v2` |
 | `-elevenlabs-api-key`  | ElevenLabs API key (prefer env var) | `ELEVENLABS_API_KEY` env |
 
 ### Voice Presets
