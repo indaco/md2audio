@@ -47,10 +47,12 @@ Convert markdown H2 sections to individual audio files using multiple TTS (Text-
 ## Prerequisites
 
 ### For macOS say Provider
+
 - macOS (uses built-in `say` command)
 - Go 1.25 or later (to build the tool)
 
 ### For ElevenLabs Provider
+
 - Any OS (Windows, macOS, Linux)
 - Go 1.25 or later (to build the tool)
 - ElevenLabs API key ([Get one here](https://elevenlabs.io/))
@@ -105,16 +107,36 @@ md2audio supports multiple Text-to-Speech providers. Choose the one that best fi
 1. Get your API key from [ElevenLabs](https://elevenlabs.io/)
 
 2. Set the environment variable:
+
    ```bash
    export ELEVENLABS_API_KEY='your-api-key'
    ```
 
 3. Or create a `.env` file in your project directory:
+
    ```bash
    echo 'ELEVENLABS_API_KEY=your-api-key' > .env
    ```
 
-4. List available voices:
+4. (Optional) Configure voice settings in `.env`:
+
+   ```bash
+   # Voice quality settings (all optional, with sensible defaults)
+   ELEVENLABS_STABILITY=0.5              # Voice consistency (0.0-1.0, default: 0.5)
+   ELEVENLABS_SIMILARITY_BOOST=0.5       # Voice similarity (0.0-1.0, default: 0.5)
+   ELEVENLABS_STYLE=0.0                  # Voice style/emotion (0.0-1.0, default: 0.0)
+   ELEVENLABS_USE_SPEAKER_BOOST=true     # Boost similarity (true/false, default: true)
+   ELEVENLABS_SPEED=1.0                  # Default speed for non-timed sections (0.7-1.2, default: 1.0)
+   ```
+
+   **Note:**
+   - `ELEVENLABS_SPEED` only applies to sections WITHOUT timing annotations
+   - Sections with `(5s)` timing will calculate speed automatically
+   - Higher stability = more consistent but less expressive
+   - Higher similarity_boost = closer to original voice characteristics
+   - Style adds emotional range (0 = disabled, higher = more expressive)
+
+5. List available voices:
    ```bash
    ./md2audio -provider elevenlabs -list-voices
    ```
@@ -173,31 +195,31 @@ md2audio supports multiple Text-to-Speech providers. Choose the one that best fi
 
 #### General Options
 
-| Flag           | Description                                   | Default            |
-| -------------- | --------------------------------------------- | ------------------ |
-| `-f`           | Input markdown file (use `-f` or `-d`)        | -                  |
-| `-d`           | Input directory (recursive, use `-f` or `-d`) | -                  |
-| `-o`           | Output directory                              | `./audio_sections` |
-| `-format`      | Output format                                 | `aiff`             |
-| `-prefix`      | Filename prefix                               | `section`          |
-| `-list-voices` | List all available voices for selected provider | -                |
-| `-provider`    | TTS provider (`say` or `elevenlabs`)          | `say`              |
+| Flag           | Description                                     | Default            |
+| -------------- | ----------------------------------------------- | ------------------ |
+| `-f`           | Input markdown file (use `-f` or `-d`)          | -                  |
+| `-d`           | Input directory (recursive, use `-f` or `-d`)   | -                  |
+| `-o`           | Output directory                                | `./audio_sections` |
+| `-format`      | Output format                                   | `aiff`             |
+| `-prefix`      | Filename prefix                                 | `section`          |
+| `-list-voices` | List all available voices for selected provider | -                  |
+| `-provider`    | TTS provider (`say` or `elevenlabs`)            | `say`              |
 
 #### macOS say Provider Options
 
-| Flag | Description                            | Default                 |
-| ---- | -------------------------------------- | ----------------------- |
-| `-p` | Voice preset (see Voice Presets below) | `Kate` (if not set)     |
-| `-v` | Specific voice name (overrides `-p`)   | -                       |
-| `-r` | Speaking rate (lower = slower)         | `180`                   |
+| Flag | Description                            | Default             |
+| ---- | -------------------------------------- | ------------------- |
+| `-p` | Voice preset (see Voice Presets below) | `Kate` (if not set) |
+| `-v` | Specific voice name (overrides `-p`)   | -                   |
+| `-r` | Speaking rate (lower = slower)         | `180`               |
 
 #### ElevenLabs Provider Options
 
-| Flag                   | Description                          | Default                  |
-| ---------------------- | ------------------------------------ | ------------------------ |
-| `-elevenlabs-voice-id` | ElevenLabs voice ID (required)       | -                        |
-| `-elevenlabs-model`    | ElevenLabs model ID                  | `eleven_monolingual_v1`  |
-| `-elevenlabs-api-key`  | ElevenLabs API key (prefer env var)  | `ELEVENLABS_API_KEY` env |
+| Flag                   | Description                         | Default                  |
+| ---------------------- | ----------------------------------- | ------------------------ |
+| `-elevenlabs-voice-id` | ElevenLabs voice ID (required)      | -                        |
+| `-elevenlabs-model`    | ElevenLabs model ID                 | `eleven_monolingual_v1`  |
+| `-elevenlabs-api-key`  | ElevenLabs API key (prefer env var) | `ELEVENLABS_API_KEY` env |
 
 ### Voice Presets
 
@@ -207,6 +229,33 @@ md2audio supports multiple Text-to-Speech providers. Choose the one that best fi
 - `us-male` -> Alex
 - `australian-female` -> Karen
 - `indian-female` -> Veena
+
+### ElevenLabs Voice Settings
+
+ElevenLabs voice quality can be fine-tuned using environment variables. All settings are optional and have sensible defaults:
+
+| Setting                        | Range      | Default | Description                                                            |
+| ------------------------------ | ---------- | ------- | ---------------------------------------------------------------------- |
+| `ELEVENLABS_STABILITY`         | 0.0-1.0    | 0.5     | Voice consistency. Higher = more consistent but less expressive        |
+| `ELEVENLABS_SIMILARITY_BOOST`  | 0.0-1.0    | 0.5     | Voice similarity to original. Higher = closer to voice characteristics |
+| `ELEVENLABS_STYLE`             | 0.0-1.0    | 0.0     | Emotional range. 0 = disabled, higher = more expressive                |
+| `ELEVENLABS_USE_SPEAKER_BOOST` | true/false | true    | Boost similarity of synthesized speech                                 |
+| `ELEVENLABS_SPEED`             | 0.7-1.2    | 1.0     | Default speaking speed (only for sections without timing annotations)  |
+
+**Speed Behavior:**
+
+- Sections **with** timing annotations like `## Scene 1 (5s)` → Speed is calculated automatically to fit duration
+- Sections **without** timing annotations → Uses `ELEVENLABS_SPEED` setting (default: 1.0)
+
+**Example `.env` configuration:**
+
+```bash
+ELEVENLABS_API_KEY=your-api-key
+ELEVENLABS_STABILITY=0.7           # More consistent voice
+ELEVENLABS_SIMILARITY_BOOST=0.8    # Closer to original voice
+ELEVENLABS_STYLE=0.3               # Slight emotional variation
+ELEVENLABS_SPEED=1.1               # 10% faster for non-timed sections
+```
 
 ## Markdown Format
 
@@ -243,7 +292,6 @@ This section has no timing specified, so it will use the default speaking rate (
 **Important Notes:**
 
 - **Timing is supported with both providers**, but with different accuracy:
-
   - **macOS say provider**: Uses `-r` (rate) parameter for speed control
     - Very wide range of speaking rates (90-360 wpm)
     - Actual duration may differ from target (typically within 1-3 seconds)

@@ -4,6 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
+
+	"github.com/indaco/md2audio/internal/env"
 )
 
 // VoicePresets maps common voice configurations to voice names
@@ -35,10 +38,20 @@ type Config struct {
 	ElevenLabsVoiceID string // ElevenLabs voice ID
 	ElevenLabsModel   string // ElevenLabs model ID
 	ElevenLabsAPIKey  string // Optional: API key (prefer env var)
+
+	// ElevenLabs Voice Settings (optional, with defaults)
+	ElevenLabsStability       float64 // Voice consistency (0.0-1.0, default: 0.5)
+	ElevenLabsSimilarityBoost float64 // Voice similarity (0.0-1.0, default: 0.5)
+	ElevenLabsStyle           float64 // Voice style/emotion (0.0-1.0, default: 0.0 = disabled)
+	ElevenLabsUseSpeakerBoost bool    // Boost similarity of synthesized speech (default: true)
+	ElevenLabsSpeed           float64 // Speaking speed (0.7-1.2, default: 1.0, only for non-timed sections)
 }
 
 // Parse parses command-line flags and returns the configuration
 func Parse() Config {
+	// Load .env file if it exists (won't override existing env vars)
+	_, _ = env.Load(".env")
+
 	config := Config{}
 
 	flag.StringVar(&config.MarkdownFile, "f", "", "Input markdown file (use -f or -d, not both)")
@@ -124,7 +137,36 @@ func Parse() Config {
 		fmt.Println("No ElevenLabs voice specified, using default: Rachel (21m00Tcm4TlvDq8ikWAM)")
 	}
 
+	// Load ElevenLabs voice settings from environment variables (with defaults)
+	if config.Provider == "elevenlabs" {
+		config.ElevenLabsStability = getEnvFloat("ELEVENLABS_STABILITY", 0.5)
+		config.ElevenLabsSimilarityBoost = getEnvFloat("ELEVENLABS_SIMILARITY_BOOST", 0.5)
+		config.ElevenLabsStyle = getEnvFloat("ELEVENLABS_STYLE", 0.0)
+		config.ElevenLabsUseSpeakerBoost = getEnvBool("ELEVENLABS_USE_SPEAKER_BOOST", true)
+		config.ElevenLabsSpeed = getEnvFloat("ELEVENLABS_SPEED", 1.0)
+	}
+
 	return config
+}
+
+// getEnvFloat retrieves a float64 value from environment variable with a default fallback
+func getEnvFloat(key string, defaultValue float64) float64 {
+	if value := os.Getenv(key); value != "" {
+		if parsed, err := strconv.ParseFloat(value, 64); err == nil {
+			return parsed
+		}
+	}
+	return defaultValue
+}
+
+// getEnvBool retrieves a bool value from environment variable with a default fallback
+func getEnvBool(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		if parsed, err := strconv.ParseBool(value); err == nil {
+			return parsed
+		}
+	}
+	return defaultValue
 }
 
 // Validate checks if the configuration is valid

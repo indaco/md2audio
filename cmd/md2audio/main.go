@@ -24,7 +24,12 @@ func run(cfg config.Config) error {
 			provider, err = say.NewProvider()
 		case "elevenlabs":
 			provider, err = elevenlabs.NewClient(elevenlabs.Config{
-				APIKey: cfg.ElevenLabsAPIKey,
+				APIKey:          cfg.ElevenLabsAPIKey,
+				Stability:       cfg.ElevenLabsStability,
+				SimilarityBoost: cfg.ElevenLabsSimilarityBoost,
+				Style:           cfg.ElevenLabsStyle,
+				UseSpeakerBoost: cfg.ElevenLabsUseSpeakerBoost,
+				Speed:           cfg.ElevenLabsSpeed,
 			})
 		default:
 			return fmt.Errorf("unsupported provider: %s", cfg.Provider)

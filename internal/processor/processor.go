@@ -20,8 +20,13 @@ func createTTSProvider(cfg config.Config) (tts.Provider, error) {
 		return say.NewProvider()
 	case "elevenlabs":
 		return elevenlabs.NewClient(elevenlabs.Config{
-			APIKey:  cfg.ElevenLabsAPIKey,
-			BaseURL: "", // Use default
+			APIKey:          cfg.ElevenLabsAPIKey,
+			BaseURL:         "", // Use default
+			Stability:       cfg.ElevenLabsStability,
+			SimilarityBoost: cfg.ElevenLabsSimilarityBoost,
+			Style:           cfg.ElevenLabsStyle,
+			UseSpeakerBoost: cfg.ElevenLabsUseSpeakerBoost,
+			Speed:           cfg.ElevenLabsSpeed,
 		})
 	default:
 		return nil, fmt.Errorf("unsupported TTS provider: %s", cfg.Provider)

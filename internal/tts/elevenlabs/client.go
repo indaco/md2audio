@@ -32,6 +32,13 @@ type Client struct {
 	apiKey     string
 	baseURL    string
 	httpClient *http.Client
+
+	// Default voice settings
+	stability       float64
+	similarityBoost float64
+	style           float64
+	useSpeakerBoost bool
+	speed           float64
 }
 
 // Config holds configuration for the ElevenLabs client.
@@ -39,6 +46,13 @@ type Config struct {
 	APIKey     string
 	BaseURL    string
 	HTTPClient *http.Client
+
+	// Voice Settings (optional, with defaults)
+	Stability       float64 // Voice consistency (0.0-1.0, default: 0.5)
+	SimilarityBoost float64 // Voice similarity (0.0-1.0, default: 0.5)
+	Style           float64 // Voice style/emotion (0.0-1.0, default: 0.0 = disabled)
+	UseSpeakerBoost bool    // Boost similarity of synthesized speech (default: true)
+	Speed           float64 // Speaking speed (0.7-1.2, default: 1.0, only for non-timed sections)
 }
 
 // NewClient creates a new ElevenLabs client.
@@ -68,10 +82,38 @@ func NewClient(cfg Config) (*Client, error) {
 		}
 	}
 
+	// Set voice settings with defaults if not provided
+	stability := cfg.Stability
+	if stability == 0 {
+		stability = 0.5 // Default
+	}
+
+	similarityBoost := cfg.SimilarityBoost
+	if similarityBoost == 0 {
+		similarityBoost = 0.5 // Default
+	}
+
+	style := cfg.Style
+	// Style defaults to 0.0 (disabled), so we don't need to check
+
+	useSpeakerBoost := cfg.UseSpeakerBoost
+	// Note: false is default for bool, but we want true as default
+	// This is handled by config parsing setting true as default
+
+	speed := cfg.Speed
+	if speed == 0 {
+		speed = 1.0 // Default natural speed
+	}
+
 	return &Client{
-		apiKey:     apiKey,
-		baseURL:    baseURL,
-		httpClient: httpClient,
+		apiKey:          apiKey,
+		baseURL:         baseURL,
+		httpClient:      httpClient,
+		stability:       stability,
+		similarityBoost: similarityBoost,
+		style:           style,
+		useSpeakerBoost: useSpeakerBoost,
+		speed:           speed,
 	}, nil
 }
 
@@ -88,18 +130,8 @@ func (c *Client) Generate(ctx context.Context, req tts.GenerateRequest) (string,
 		modelID = *req.ModelID
 	}
 
-	// Prepare voice settings
-	voiceSettings := &VoiceSettings{
-		Stability:       0.5,
-		SimilarityBoost: 0.5,
-	}
-
-	// Calculate speed if target duration is provided
-	if req.TargetDuration != nil && *req.TargetDuration > 0 {
-		speed := calculateSpeed(req.Text, *req.TargetDuration)
-		voiceSettings.Speed = &speed
-		fmt.Printf("Target duration: %.1fs, Calculated speed: %.2fx\n", *req.TargetDuration, speed)
-	}
+	// Prepare voice settings from client defaults
+	voiceSettings := c.prepareVoiceSettings(req)
 
 	// Prepare request body
 	reqBody := TTSRequest{
@@ -241,6 +273,38 @@ type VoiceInfo struct {
 type VoiceLabels struct {
 	Language string `json:"language"`
 	Gender   string `json:"gender"`
+}
+
+// prepareVoiceSettings creates voice settings for the TTS request.
+// It uses client defaults and handles speed settings based on timing annotations.
+func (c *Client) prepareVoiceSettings(req tts.GenerateRequest) *VoiceSettings {
+	settings := &VoiceSettings{
+		Stability:       c.stability,
+		SimilarityBoost: c.similarityBoost,
+	}
+
+	// Add optional settings if non-default
+	if c.style > 0 {
+		settings.Style = &c.style
+	}
+	if c.useSpeakerBoost {
+		useSpeakerBoost := true
+		settings.UseSpeakerBoost = &useSpeakerBoost
+	}
+
+	// Speed handling: timing annotation overrides default speed
+	if req.TargetDuration != nil && *req.TargetDuration > 0 {
+		// Calculate speed to match target duration
+		speed := calculateSpeed(req.Text, *req.TargetDuration)
+		settings.Speed = &speed
+		fmt.Printf("Target duration: %.1fs, Calculated speed: %.2fx\n", *req.TargetDuration, speed)
+	} else if c.speed != 1.0 && c.speed > 0 {
+		// Use configured default speed for non-timed sections (only if explicitly set)
+		settings.Speed = &c.speed
+		fmt.Printf("Using configured speed: %.2fx\n", c.speed)
+	}
+
+	return settings
 }
 
 // calculateSpeed determines the speed multiplier needed to match target duration.
