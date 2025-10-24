@@ -12,8 +12,8 @@ rm -f coverage.txt coverage-*.txt
 
 echo "Running tests..."
 
-# Get list of packages excluding testhelpers
-packages=$(go list ./... | grep -Ev 'internal/testhelpers')
+# Get list of packages excluding testhelpers and internal/tts (interface-only package)
+packages=$(go list ./... | grep -Ev 'internal/testhelpers$|internal/tts$')
 
 # Run tests for each package and generate individual coverage files
 for pkg in $packages; do
