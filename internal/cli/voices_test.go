@@ -238,7 +238,11 @@ func TestExportVoices(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create voice cache: %v", err)
 	}
-	defer voiceCache.Close()
+	defer func() {
+		if err := voiceCache.Close(); err != nil {
+			t.Logf("Warning: failed to close voice cache: %v", err)
+		}
+	}()
 
 	// Create provider
 	cfg := config.Config{
@@ -299,7 +303,11 @@ func TestExportVoicesNoVoices(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create voice cache: %v", err)
 	}
-	defer voiceCache.Close()
+	defer func() {
+		if err := voiceCache.Close(); err != nil {
+			t.Logf("Warning: failed to close voice cache: %v", err)
+		}
+	}()
 
 	cfg := config.Config{
 		Provider: "say",
@@ -335,7 +343,11 @@ func TestListVoices(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create voice cache: %v", err)
 	}
-	defer voiceCache.Close()
+	defer func() {
+		if err := voiceCache.Close(); err != nil {
+			t.Logf("Warning: failed to close voice cache: %v", err)
+		}
+	}()
 
 	cfg := config.Config{
 		Provider: "say",
@@ -395,7 +407,11 @@ func TestHandleVoiceCommands(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create voice cache: %v", err)
 	}
-	defer voiceCache.Close()
+	defer func() {
+		if err := voiceCache.Close(); err != nil {
+			t.Logf("Warning: failed to close voice cache: %v", err)
+		}
+	}()
 
 	log := logger.NewDefaultLogger()
 
@@ -452,7 +468,11 @@ func TestGetVoicesWithCacheInfo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create voice cache: %v", err)
 	}
-	defer voiceCache.Close()
+	defer func() {
+		if err := voiceCache.Close(); err != nil {
+			t.Logf("Warning: failed to close voice cache: %v", err)
+		}
+	}()
 
 	cfg := config.Config{
 		Provider: "say",
