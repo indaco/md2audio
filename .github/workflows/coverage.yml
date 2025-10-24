@@ -7,6 +7,10 @@ on:
 
 jobs:
   coverage:
+    # Run on macOS for accurate coverage reporting (~82%)
+    # - say provider is ready with full features
+    # - espeak provider has limited coverage on macOS (tests skip)
+    # - Linux compatibility is ensured by ci.yml matrix strategy
     runs-on: macos-latest
     steps:
       - name: Checkout code
