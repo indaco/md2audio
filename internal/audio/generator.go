@@ -90,7 +90,7 @@ func (g *Generator) Generate(section parser.Section, index int) error {
 		// Calculate required rate to fit the duration (for say provider)
 		estimatedRate := estimateSpeakingRate(section.Content, section.Duration, g.log)
 		speakingRate = estimatedRate
-		g.log.Hint(fmt.Sprintf("Target duration: %.1fs, Calculated rate: %d wpm", section.Duration, speakingRate))
+		g.log.Faint(fmt.Sprintf("Target duration: %.1fs, Calculated rate: %d wpm", section.Duration, speakingRate))
 
 		// Also pass target duration for providers that support it (e.g., ElevenLabs)
 		targetDuration = &section.Duration

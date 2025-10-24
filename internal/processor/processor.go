@@ -170,7 +170,7 @@ func processSingleFile(markdownFile, outputDir string, cfg config.Config, log lo
 
 		if section.HasTiming {
 			log.WithIndent(true)
-			log.Hint(fmt.Sprintf("Target duration: %.1f seconds", section.Duration))
+			log.Faint(fmt.Sprintf("Target duration: %.1f seconds", section.Duration))
 			log.WithIndent(false)
 		}
 
@@ -179,7 +179,7 @@ func processSingleFile(markdownFile, outputDir string, cfg config.Config, log lo
 			preview = preview[:100] + "..."
 		}
 		log.WithIndent(true)
-		log.Hint(fmt.Sprintf("Text: %s", preview))
+		log.Faint(fmt.Sprintf("Text: %s", preview))
 		log.WithIndent(false)
 
 		if err := generator.Generate(section, i+1); err != nil {
