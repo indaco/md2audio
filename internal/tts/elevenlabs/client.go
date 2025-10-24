@@ -9,11 +9,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/indaco/md2audio/internal/env"
 	"github.com/indaco/md2audio/internal/tts"
+	"github.com/indaco/md2audio/internal/utils"
 )
 
 const (
@@ -315,35 +315,37 @@ func (c *Client) prepareVoiceSettings(req tts.GenerateRequest) *VoiceSettings {
 // calculateSpeed determines the speed multiplier needed to match target duration.
 // ElevenLabs speed ranges from 0.7 (slower) to 1.2 (faster), with 1.0 being normal.
 func calculateSpeed(text string, targetDuration float64) float64 {
-	// Count words in text
-	words := strings.Fields(text)
-	wordCount := float64(len(words))
+	const (
+		naturalWPM   = 150.0 // Assume natural speaking rate at speed 1.0 is ~150 words per minute
+		minSpeed     = 0.7   // ElevenLabs minimum speed
+		maxSpeed     = 1.2   // ElevenLabs maximum speed
+		defaultSpeed = 1.0
+	)
 
+	wordCount := utils.CountWords(text)
 	if wordCount == 0 {
-		return 1.0 // default speed
+		return defaultSpeed
 	}
 
-	// Assume natural speaking rate at speed 1.0 is ~150 words per minute
-	const naturalWPM = 150.0
-
-	// Calculate natural duration at speed 1.0 (in seconds)
-	naturalDuration := (wordCount / naturalWPM) * 60.0
+	// Calculate natural duration at speed 1.0 using utility
+	naturalDuration := utils.EstimateDuration(text, naturalWPM)
 
 	// Calculate required speed: naturalDuration / targetDuration
 	// If target is shorter, we need faster speed (>1.0)
 	// If target is longer, we need slower speed (<1.0)
 	speed := naturalDuration / targetDuration
+	originalSpeed := speed
 
-	// Clamp to ElevenLabs valid range: 0.7 - 1.2
-	const minSpeed = 0.7
-	const maxSpeed = 1.2
+	// Clamp to ElevenLabs valid range
+	speed = utils.ClampFloat64(speed, minSpeed, maxSpeed)
 
-	if speed < minSpeed {
-		speed = minSpeed
-		fmt.Fprintf(os.Stderr, "Warning: Required speed (%.2f) is below minimum, clamping to %.1f (audio will be longer than target)\n", naturalDuration/targetDuration, minSpeed)
-	} else if speed > maxSpeed {
-		speed = maxSpeed
-		fmt.Fprintf(os.Stderr, "Warning: Required speed (%.2f) exceeds maximum, clamping to %.1f (audio will be shorter than target)\n", naturalDuration/targetDuration, maxSpeed)
+	// Warn if we had to clamp
+	if speed != originalSpeed {
+		if originalSpeed < minSpeed {
+			fmt.Fprintf(os.Stderr, "Warning: Required speed (%.2f) is below minimum, clamping to %.1f (audio will be longer than target)\n", originalSpeed, minSpeed)
+		} else {
+			fmt.Fprintf(os.Stderr, "Warning: Required speed (%.2f) exceeds maximum, clamping to %.1f (audio will be shorter than target)\n", originalSpeed, maxSpeed)
+		}
 	}
 
 	return speed

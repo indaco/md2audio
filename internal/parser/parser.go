@@ -1,3 +1,13 @@
+// Package parser provides markdown file parsing and section extraction functionality.
+// It extracts H2 sections from markdown files, parses timing annotations,
+// and discovers markdown files in directory trees.
+//
+// Key features:
+//   - H2 section extraction from markdown files
+//   - Timing annotation parsing (e.g., "## Scene 1 (5s)")
+//   - Recursive markdown file discovery
+//   - Input validation (file size, path safety)
+//   - Directory structure mirroring for batch processing
 package parser
 
 import (
@@ -13,6 +23,15 @@ import (
 const (
 	// MaxFileSize is the maximum allowed markdown file size (10MB)
 	MaxFileSize = 10 * 1024 * 1024 // 10MB should be more than enough for any reasonable markdown
+)
+
+// Pre-compiled regular expressions for performance
+var (
+	// Pattern to match H2 headers (##)
+	h2Pattern = regexp.MustCompile(`^##\s+(.+)$`)
+
+	// Pattern to extract timing from title: (0-8s) or (10s) or (8 seconds)
+	timingPattern = regexp.MustCompile(`\((\d+(?:\.\d+)?)\s*(?:-\s*(\d+(?:\.\d+)?))?\s*s(?:ec(?:ond)?s?)?\)`)
 )
 
 // Section represents a markdown section with title and content
@@ -63,6 +82,50 @@ func validateMarkdownFile(filename string) error {
 	return nil
 }
 
+// parseTimingAnnotation extracts timing information from a title string.
+// Returns the parsed duration, whether timing was found, and the title without timing.
+func parseTimingAnnotation(titleWithTiming string) (duration float64, hasTiming bool, cleanTitle string) {
+	timingMatch := timingPattern.FindStringSubmatch(titleWithTiming)
+	if timingMatch == nil {
+		return 0, false, titleWithTiming
+	}
+
+	// Try range format first: (0-8s) - use end time
+	if len(timingMatch) >= 3 && timingMatch[2] != "" {
+		if dur, err := parseFloat(timingMatch[2]); err == nil {
+			cleanTitle = strings.TrimSpace(timingPattern.ReplaceAllString(titleWithTiming, ""))
+			return dur, true, cleanTitle
+		}
+	}
+
+	// Try single value format: (8s) or (10s)
+	if len(timingMatch) >= 2 {
+		if dur, err := parseFloat(timingMatch[1]); err == nil {
+			cleanTitle = strings.TrimSpace(timingPattern.ReplaceAllString(titleWithTiming, ""))
+			return dur, true, cleanTitle
+		}
+	}
+
+	return 0, false, titleWithTiming
+}
+
+// saveSection saves a section with cleaned content to the sections slice.
+// Returns the updated sections slice.
+func saveSection(sections []Section, section *Section, contentLines []string) []Section {
+	if section == nil {
+		return sections
+	}
+
+	sectionText := strings.Join(contentLines, "\n")
+	sectionText = text.CleanMarkdown(sectionText)
+	if sectionText != "" {
+		section.Content = sectionText
+		sections = append(sections, *section)
+	}
+
+	return sections
+}
+
 // ParseMarkdownFile parses a markdown file and extracts H2 sections
 func ParseMarkdownFile(filename string) ([]Section, error) {
 	// Validate file before reading
@@ -76,15 +139,7 @@ func ParseMarkdownFile(filename string) ([]Section, error) {
 	}
 
 	content := string(data)
-
-	// Split content into lines for processing
 	lines := strings.Split(content, "\n")
-
-	// Pattern to match H2 headers
-	h2Pattern := regexp.MustCompile(`^##\s+(.+)$`)
-
-	// Pattern to extract timing from title: (0-8s) or (10s) or (8 seconds)
-	timingPattern := regexp.MustCompile(`\((\d+(?:\.\d+)?)\s*(?:-\s*(\d+(?:\.\d+)?))?\s*s(?:ec(?:ond)?s?)?\)`)
 
 	var sections []Section
 	var currentSection *Section
@@ -93,40 +148,16 @@ func ParseMarkdownFile(filename string) ([]Section, error) {
 	for _, line := range lines {
 		if match := h2Pattern.FindStringSubmatch(line); match != nil {
 			// Save previous section if exists
-			if currentSection != nil {
-				sectionText := strings.Join(contentLines, "\n")
-				sectionText = text.CleanMarkdown(sectionText)
-				if sectionText != "" {
-					currentSection.Content = sectionText
-					sections = append(sections, *currentSection)
-				}
-			}
+			sections = saveSection(sections, currentSection, contentLines)
 
 			// Start new section
 			titleWithTiming := strings.TrimSpace(match[1])
+			duration, hasTiming, cleanTitle := parseTimingAnnotation(titleWithTiming)
+
 			currentSection = &Section{
-				Title:     titleWithTiming,
-				HasTiming: false,
-			}
-
-			// Check for timing pattern in title
-			if timingMatch := timingPattern.FindStringSubmatch(titleWithTiming); timingMatch != nil {
-				if len(timingMatch) >= 3 && timingMatch[2] != "" {
-					// Range format: (0-8s) - use end time
-					if duration, err := parseFloat(timingMatch[2]); err == nil {
-						currentSection.Duration = duration
-						currentSection.HasTiming = true
-					}
-				} else if len(timingMatch) >= 2 {
-					// Single value format: (8s) or (10s)
-					if duration, err := parseFloat(timingMatch[1]); err == nil {
-						currentSection.Duration = duration
-						currentSection.HasTiming = true
-					}
-				}
-
-				// Remove timing from title for cleaner display
-				currentSection.Title = strings.TrimSpace(timingPattern.ReplaceAllString(titleWithTiming, ""))
+				Title:     cleanTitle,
+				Duration:  duration,
+				HasTiming: hasTiming,
 			}
 
 			// Reset content lines for new section
@@ -138,14 +169,7 @@ func ParseMarkdownFile(filename string) ([]Section, error) {
 	}
 
 	// Save last section
-	if currentSection != nil {
-		sectionText := strings.Join(contentLines, "\n")
-		sectionText = text.CleanMarkdown(sectionText)
-		if sectionText != "" {
-			currentSection.Content = sectionText
-			sections = append(sections, *currentSection)
-		}
-	}
+	sections = saveSection(sections, currentSection, contentLines)
 
 	return sections, nil
 }

@@ -13,6 +13,7 @@ import (
 
 	"github.com/indaco/md2audio/internal/text"
 	"github.com/indaco/md2audio/internal/tts"
+	"github.com/indaco/md2audio/internal/utils"
 )
 
 // Provider implements the TTS Provider interface for macOS 'say' command.
@@ -80,7 +81,7 @@ func (p *Provider) Generate(ctx context.Context, req tts.GenerateRequest) (strin
 	fmt.Fprintf(os.Stderr, "Generating: %s\n", outputPath)
 
 	// Measure actual duration using afinfo
-	duration, err := getAudioDuration(outputPath)
+	duration, err := utils.GetAudioDuration(outputPath)
 	if err == nil {
 		fmt.Fprintf(os.Stderr, "✓ Created: %s\n", outputPath)
 		fmt.Fprintf(os.Stderr, "  Actual duration: %.2fs\n", duration)
@@ -143,29 +144,10 @@ func (p *Provider) ListVoices(ctx context.Context) ([]tts.Voice, error) {
 	return voices, nil
 }
 
-// getAudioDuration measures the duration of an audio file using afinfo.
+// getAudioDuration is deprecated. Use utils.GetAudioDuration instead.
+// This wrapper is kept for backward compatibility but may be removed in future versions.
 func getAudioDuration(audioPath string) (float64, error) {
-	cmd := exec.Command("afinfo", audioPath)
-	output, err := cmd.Output()
-	if err != nil {
-		return 0, fmt.Errorf("afinfo command failed: %w", err)
-	}
-
-	// Parse duration from afinfo output
-	// Looking for line like: "estimated duration: 5.123456 sec"
-	re := regexp.MustCompile(`estimated duration:\s+([\d.]+)\s+sec`)
-	matches := re.FindStringSubmatch(string(output))
-
-	if len(matches) < 2 {
-		return 0, fmt.Errorf("could not parse duration from afinfo output")
-	}
-
-	duration, err := strconv.ParseFloat(matches[1], 64)
-	if err != nil {
-		return 0, fmt.Errorf("could not parse duration value: %w", err)
-	}
-
-	return duration, nil
+	return utils.GetAudioDuration(audioPath)
 }
 
 // convertToM4A converts an AIFF file to M4A format using afconvert.

@@ -1,3 +1,13 @@
+// Package audio provides audio generation orchestration.
+// It coordinates TTS providers to generate audio files from markdown sections,
+// with support for timing control and format conversion.
+//
+// Key features:
+//   - Audio generation orchestration
+//   - Timing annotation support
+//   - Speaking rate calculation
+//   - Multiple output formats (AIFF, M4A, MP3)
+//   - Duration measurement and validation
 package audio
 
 import (
@@ -5,13 +15,12 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
-	"regexp"
-	"strings"
 
 	"github.com/indaco/md2audio/internal/logger"
 	"github.com/indaco/md2audio/internal/parser"
 	"github.com/indaco/md2audio/internal/text"
 	"github.com/indaco/md2audio/internal/tts"
+	"github.com/indaco/md2audio/internal/utils"
 )
 
 // GeneratorConfig holds configuration for audio generation
@@ -108,8 +117,7 @@ func (g *Generator) Generate(section parser.Section, index int) error {
 	if section.HasTiming {
 		// Try to get actual duration (provider-dependent)
 		if g.config.Provider.Name() == "say" {
-			actualDuration := getAudioDuration(finalPath)
-			if actualDuration > 0 {
+			if actualDuration, err := utils.GetAudioDuration(finalPath); err == nil {
 				diff := actualDuration - section.Duration
 				g.log.WithIndent(true)
 				g.log.Hint(fmt.Sprintf("target: %.1fs, diff: %+.2fs", section.Duration, diff))
@@ -123,52 +131,27 @@ func (g *Generator) Generate(section parser.Section, index int) error {
 
 // estimateSpeakingRate calculates the words per minute needed to fit target duration
 func estimateSpeakingRate(textContent string, targetDuration float64, log logger.LoggerInterface) int {
-	// Count words
-	words := strings.Fields(textContent)
-	wordCount := len(words)
+	const (
+		minWPM           = 90
+		maxWPM           = 360
+		defaultWPM       = 180
+		adjustmentFactor = 0.95 // Empirical adjustment - say command seems slightly faster
+	)
 
-	// Calculate required words per minute
-	// targetDuration is in seconds, convert to minutes
-	targetMinutes := targetDuration / 60.0
+	wordCount := utils.CountWords(textContent)
+	requiredWPM := utils.CalculateWPM(wordCount, targetDuration)
 
-	if targetMinutes <= 0 {
-		return 180 // default fallback
+	if requiredWPM <= 0 {
+		return defaultWPM // default fallback
 	}
-
-	requiredWPM := float64(wordCount) / targetMinutes
 
 	// Add a small adjustment factor (say command seems to be slightly faster in practice)
-	// This is empirical and may need tuning
-	adjustedWPM := requiredWPM * 0.95
+	adjustedWPM := requiredWPM * adjustmentFactor
 
 	// Clamp to reasonable values (say supports roughly 90-360 wpm)
-	if adjustedWPM < 90 {
-		adjustedWPM = 90
-	} else if adjustedWPM > 360 {
-		adjustedWPM = 360
-		log.Warning(fmt.Sprintf("Required rate (%.0f wpm) exceeds maximum, capping at 360 wpm", requiredWPM))
+	if adjustedWPM > maxWPM {
+		log.Warning(fmt.Sprintf("Required rate (%.0f wpm) exceeds maximum, capping at %d wpm", requiredWPM, maxWPM))
 	}
 
-	return int(adjustedWPM)
-}
-
-// getAudioDuration returns the duration of an audio file in seconds
-func getAudioDuration(filepath string) float64 {
-	cmd := exec.Command("afinfo", filepath)
-	output, err := cmd.Output()
-	if err != nil {
-		return 0
-	}
-
-	// Parse output for duration
-	// Looking for line like: "estimated duration: 8.413764 sec"
-	durationPattern := regexp.MustCompile(`estimated duration:\s+([\d.]+)\s+sec`)
-	if match := durationPattern.FindStringSubmatch(string(output)); match != nil {
-		var duration float64
-		if _, err := fmt.Sscanf(match[1], "%f", &duration); err == nil {
-			return duration
-		}
-	}
-
-	return 0
+	return utils.ClampInt(int(adjustedWPM), minWPM, maxWPM)
 }
