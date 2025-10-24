@@ -112,3 +112,55 @@ just install            # Install binary to $GOPATH/bin
 # Project Info
 just tree               # Show project structure
 ```
+
+## Project Architecture
+
+The codebase is organized into modular packages for better maintainability and testability:
+
+```
+md2audio/
+├── cmd/md2audio/        # Main entry point (orchestration only)
+│   └── main.go
+├── internal/
+│   ├── config/          # Configuration and CLI flags
+│   ├── parser/          # Markdown parsing and file discovery
+│   ├── text/            # Text processing utilities
+│   ├── env/             # Environment variable and .env file loading
+│   ├── tts/             # TTS providers interface definition& implementations
+│   ├── audio/           # Audio generation orchestration
+│   └── processor/       # File and directory processing
+```
+
+### Key Packages
+
+- **internal/config** - Handles command-line arguments, voice presets, provider selection, and configuration validation
+- **internal/parser** - Extracts H2 sections from markdown with timing annotations, discovers markdown files recursively
+- **internal/text** - Provides markdown cleaning and filename sanitization
+- **internal/env** - Pure Go .env file loader with environment variable support
+- **internal/tts** - Provider interface for TTS abstraction, enabling multiple TTS backends
+- **internal/tts/say** - macOS say command provider with AIFF/M4A support
+- **internal/tts/elevenlabs** - ElevenLabs API client with HTTP mocking support for tests
+- **internal/audio** - Audio generation orchestration using TTS providers
+- **internal/processor** - Orchestrates file and directory processing with mirror structure support
+
+### Architecture Pattern
+
+The project uses a **provider pattern** for TTS services:
+
+1. **Provider Interface** (`internal/tts/provider.go`) - Defines the contract for TTS providers
+2. **Concrete Providers** - Implement the interface for specific TTS services
+3. **Factory Pattern** - Creates appropriate provider based on configuration
+4. **Dependency Injection** - Providers are injected into audio generator
+
+This architecture makes it easy to add new TTS providers (e.g., Google Cloud TTS, AWS Polly) by implementing the Provider interface.
+
+## Code Quality Standards
+
+The project maintains high code quality standards:
+
+- **Go Report Card**: Maintain A+ 100.0% grade
+- **Test Coverage**: Currently ~72% overall
+- **Cyclomatic Complexity**: Keep functions under 15 complexity
+- **All Checks Pass**: fmt, vet, lint, gocyclo must pass
+
+Run `just check` before committing to ensure all quality checks pass.
