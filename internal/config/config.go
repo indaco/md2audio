@@ -62,7 +62,7 @@ type VoiceSettings struct {
 // ElevenLabsConfig holds configuration for the ElevenLabs provider
 type ElevenLabsConfig struct {
 	VoiceID       string        // ElevenLabs voice ID (required when using elevenlabs provider)
-	Model         string        // ElevenLabs model ID (default: "eleven_monolingual_v1")
+	Model         string        // ElevenLabs model ID (default: "eleven_multilingual_v2")
 	APIKey        string        // ElevenLabs API key (prefer ELEVENLABS_API_KEY env var)
 	VoiceSettings VoiceSettings // Voice generation settings (loaded from environment variables with defaults)
 }
@@ -115,7 +115,7 @@ func Parse() Config {
 
 	// ElevenLabs provider options
 	flag.StringVar(&config.ElevenLabs.VoiceID, "elevenlabs-voice-id", "", "ElevenLabs voice ID (e.g., '21m00Tcm4TlvDq8ikWAM')")
-	flag.StringVar(&config.ElevenLabs.Model, "elevenlabs-model", "eleven_monolingual_v1", "ElevenLabs model ID")
+	flag.StringVar(&config.ElevenLabs.Model, "elevenlabs-model", "eleven_multilingual_v2", "ElevenLabs model ID")
 	flag.StringVar(&config.ElevenLabs.APIKey, "elevenlabs-api-key", "", "ElevenLabs API key (prefer ELEVENLABS_API_KEY env var)")
 
 	// Common options
