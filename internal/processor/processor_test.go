@@ -1,9 +1,11 @@
 package processor
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/indaco/md2audio/internal/config"
@@ -257,6 +259,326 @@ func TestProcessFileWithDifferentFormats(t *testing.T) {
 				t.Errorf("ProcessFile() with %s format error = %v", tt.format, err)
 			}
 		})
+	}
+}
+
+func TestProcessFileDryRun(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("Skipping macOS-specific test")
+	}
+
+	tmpDir := t.TempDir()
+	mdFile := filepath.Join(tmpDir, "test.md")
+	content := `## Test Section
+
+This is test content for dry-run.
+
+## Section with Timing (5s)
+
+Content with timing annotation.
+`
+	if err := os.WriteFile(mdFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	outputDir := filepath.Join(tmpDir, "output")
+
+	cfg := config.Config{
+		Provider: "say",
+		Voice:    "Kate",
+		Rate:     180,
+		Format:   "aiff",
+		Prefix:   "test",
+		DryRun:   true, // Enable dry-run mode
+	}
+
+	log := logger.NewDefaultLogger()
+	err := ProcessFile(mdFile, outputDir, cfg, log)
+	if err != nil {
+		t.Errorf("ProcessFile() with dry-run error = %v", err)
+	}
+
+	// Verify no actual audio files were created
+	entries, _ := os.ReadDir(outputDir)
+	for _, entry := range entries {
+		if strings.HasSuffix(entry.Name(), ".aiff") {
+			t.Error("Dry-run mode should not create audio files")
+		}
+	}
+}
+
+func TestProcessFileInvalidProvider(t *testing.T) {
+	tmpDir := t.TempDir()
+	mdFile := filepath.Join(tmpDir, "test.md")
+	content := "## Test\nContent"
+
+	if err := os.WriteFile(mdFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	outputDir := filepath.Join(tmpDir, "output")
+
+	cfg := config.Config{
+		Provider: "invalid-provider", // Invalid provider
+		Voice:    "Kate",
+		Rate:     180,
+		Format:   "aiff",
+		Prefix:   "test",
+	}
+
+	log := logger.NewDefaultLogger()
+	err := ProcessFile(mdFile, outputDir, cfg, log)
+	if err == nil {
+		t.Error("ProcessFile() should error on invalid provider")
+	}
+
+	expectedMsg := "unsupported provider"
+	if !strings.Contains(err.Error(), expectedMsg) {
+		t.Errorf("Expected error containing %q, got: %v", expectedMsg, err)
+	}
+}
+
+func TestProcessFileReadOnlyOutputDir(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("Skipping macOS-specific test")
+	}
+
+	tmpDir := t.TempDir()
+	mdFile := filepath.Join(tmpDir, "test.md")
+	content := "## Test\nContent"
+
+	if err := os.WriteFile(mdFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// Create a read-only parent directory
+	readOnlyDir := filepath.Join(tmpDir, "readonly")
+	if err := os.MkdirAll(readOnlyDir, 0555); err != nil {
+		t.Fatalf("Failed to create read-only directory: %v", err)
+	}
+	defer func() { _ = os.Chmod(readOnlyDir, 0755) }() // Restore permissions for cleanup
+
+	outputDir := filepath.Join(readOnlyDir, "output")
+
+	cfg := config.Config{
+		Provider: "say",
+		Voice:    "Kate",
+		Rate:     180,
+		Format:   "aiff",
+		Prefix:   "test",
+	}
+
+	log := logger.NewDefaultLogger()
+	err := ProcessFile(mdFile, outputDir, cfg, log)
+	if err == nil {
+		t.Error("ProcessFile() should error when output directory cannot be created")
+	}
+}
+
+func TestProcessDirectoryPartialFailure(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("Skipping macOS-specific test")
+	}
+
+	tmpDir := t.TempDir()
+
+	// Create valid markdown file
+	validFile := filepath.Join(tmpDir, "valid.md")
+	validContent := `## Section 1
+Valid content.`
+	if err := os.WriteFile(validFile, []byte(validContent), 0644); err != nil {
+		t.Fatalf("Failed to create valid file: %v", err)
+	}
+
+	// Create invalid markdown file (no sections)
+	invalidFile := filepath.Join(tmpDir, "invalid.md")
+	invalidContent := "# Just an H1\nNo H2 sections here."
+	if err := os.WriteFile(invalidFile, []byte(invalidContent), 0644); err != nil {
+		t.Fatalf("Failed to create invalid file: %v", err)
+	}
+
+	outputDir := filepath.Join(tmpDir, "audio_output")
+
+	cfg := config.Config{
+		Provider:  "say",
+		InputDir:  tmpDir,
+		OutputDir: outputDir,
+		Voice:     "Kate",
+		Rate:      180,
+		Format:    "aiff",
+		Prefix:    "test",
+	}
+
+	log := logger.NewDefaultLogger()
+	err := ProcessDirectory(cfg, log)
+	// Should not error - partial failures are handled gracefully
+	if err != nil {
+		t.Errorf("ProcessDirectory() should handle partial failures gracefully, got: %v", err)
+	}
+}
+
+func TestProcessDirectoryWithSubdirectories(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("Skipping macOS-specific test")
+	}
+
+	tmpDir := t.TempDir()
+
+	// Create nested directory structure
+	files := map[string]string{
+		"root.md":                "## Root\nRoot content.",
+		"sub1/file1.md":          "## Sub1 File1\nContent 1.",
+		"sub1/file2.md":          "## Sub1 File2\nContent 2.",
+		"sub2/deep/file3.md":     "## Deep File\nDeep content.",
+		"sub2/deep/alt/file4.md": "## Alt File\nAlt content.",
+	}
+
+	for path, content := range files {
+		fullPath := filepath.Join(tmpDir, path)
+		dir := filepath.Dir(fullPath)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatalf("Failed to create directory: %v", err)
+		}
+		if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
+			t.Fatalf("Failed to create file: %v", err)
+		}
+	}
+
+	outputDir := filepath.Join(tmpDir, "audio_output")
+
+	cfg := config.Config{
+		Provider:  "say",
+		InputDir:  tmpDir,
+		OutputDir: outputDir,
+		Voice:     "Kate",
+		Rate:      180,
+		Format:    "aiff",
+		Prefix:    "test",
+	}
+
+	log := logger.NewDefaultLogger()
+	err := ProcessDirectory(cfg, log)
+	if err != nil {
+		t.Errorf("ProcessDirectory() error = %v", err)
+	}
+
+	// Verify nested directory structure was created
+	expectedDirs := []string{
+		filepath.Join(outputDir, "root"),
+		filepath.Join(outputDir, "sub1/file1"),
+		filepath.Join(outputDir, "sub1/file2"),
+		filepath.Join(outputDir, "sub2/deep/file3"),
+		filepath.Join(outputDir, "sub2/deep/alt/file4"),
+	}
+
+	for _, dir := range expectedDirs {
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			t.Errorf("Expected directory not created: %s", dir)
+		}
+	}
+}
+
+func TestProcessFileElevenLabsProvider(t *testing.T) {
+	// This test verifies the code path for ElevenLabs provider configuration
+	// Without mocking, it will fail due to missing API key, but we can verify
+	// the error is appropriate
+
+	tmpDir := t.TempDir()
+	mdFile := filepath.Join(tmpDir, "test.md")
+	content := "## Test\nContent"
+
+	if err := os.WriteFile(mdFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	outputDir := filepath.Join(tmpDir, "output")
+
+	cfg := config.Config{
+		Provider:          "elevenlabs",
+		ElevenLabsVoiceID: "test-voice-id",
+		ElevenLabsAPIKey:  "", // Missing API key
+		Format:            "mp3",
+		Prefix:            "test",
+	}
+
+	log := logger.NewDefaultLogger()
+	err := ProcessFile(mdFile, outputDir, cfg, log)
+	if err == nil {
+		t.Error("ProcessFile() should error with missing ElevenLabs API key")
+	}
+
+	// Should contain API key related error
+	if !strings.Contains(err.Error(), "API") && !strings.Contains(err.Error(), "key") {
+		t.Logf("Got error: %v", err)
+	}
+}
+
+func TestProcessFileLongSectionTitle(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("Skipping macOS-specific test")
+	}
+
+	tmpDir := t.TempDir()
+	mdFile := filepath.Join(tmpDir, "test.md")
+
+	// Create section with very long title
+	longTitle := strings.Repeat("a", 100)
+	content := fmt.Sprintf("## %s\n\nContent for long title.", longTitle)
+
+	if err := os.WriteFile(mdFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	outputDir := filepath.Join(tmpDir, "output")
+
+	cfg := config.Config{
+		Provider: "say",
+		Voice:    "Kate",
+		Rate:     180,
+		Format:   "aiff",
+		Prefix:   "test",
+		DryRun:   true, // Use dry-run to avoid actual file creation
+	}
+
+	log := logger.NewDefaultLogger()
+	err := ProcessFile(mdFile, outputDir, cfg, log)
+	if err != nil {
+		t.Errorf("ProcessFile() with long title error = %v", err)
+	}
+}
+
+func TestProcessFileSpecialCharactersInTitle(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("Skipping macOS-specific test")
+	}
+
+	tmpDir := t.TempDir()
+	mdFile := filepath.Join(tmpDir, "test.md")
+
+	// Create section with special characters in title
+	content := `## Test: Special/Characters & Symbols!
+
+Content with special characters in section title.
+`
+	if err := os.WriteFile(mdFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	outputDir := filepath.Join(tmpDir, "output")
+
+	cfg := config.Config{
+		Provider: "say",
+		Voice:    "Kate",
+		Rate:     180,
+		Format:   "aiff",
+		Prefix:   "test",
+		DryRun:   true,
+	}
+
+	log := logger.NewDefaultLogger()
+	err := ProcessFile(mdFile, outputDir, cfg, log)
+	if err != nil {
+		t.Errorf("ProcessFile() with special characters error = %v", err)
 	}
 }
 

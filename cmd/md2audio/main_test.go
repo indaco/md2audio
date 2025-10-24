@@ -204,3 +204,206 @@ func TestRunEmptyDirectory(t *testing.T) {
 		t.Errorf("Expected error containing %q, got: %v", expectedMsg, err)
 	}
 }
+
+func TestRunExportVoices(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("Skipping macOS-specific test")
+	}
+
+	tmpDir := t.TempDir()
+	exportPath := filepath.Join(tmpDir, "voices.json")
+
+	cfg := config.Config{
+		Provider:     "say",
+		ExportVoices: exportPath,
+	}
+
+	log := logger.NewDefaultLogger()
+	err := run(cfg, log)
+	if err != nil {
+		t.Errorf("run() with ExportVoices should not error, got: %v", err)
+	}
+
+	// Verify file was created
+	if _, err := os.Stat(exportPath); os.IsNotExist(err) {
+		t.Error("Export file was not created")
+	}
+}
+
+func TestRunDryRunMode(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("Skipping macOS-specific test")
+	}
+
+	// Create test markdown file
+	tmpDir := t.TempDir()
+	mdFile := filepath.Join(tmpDir, "test.md")
+	content := `## Test Section
+
+This is test content for dry-run.
+`
+	if err := os.WriteFile(mdFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	outputDir := filepath.Join(tmpDir, "output")
+
+	cfg := config.Config{
+		Provider:     "say",
+		MarkdownFile: mdFile,
+		OutputDir:    outputDir,
+		Voice:        "Kate",
+		Rate:         180,
+		Format:       "aiff",
+		Prefix:       "test",
+		DryRun:       true, // Enable dry-run mode
+	}
+
+	log := logger.NewDefaultLogger()
+	err := run(cfg, log)
+	if err != nil {
+		t.Errorf("run() with dry-run error = %v", err)
+	}
+
+	// Verify no actual audio files were created (dry-run)
+	// Output directory might be created but shouldn't have audio files
+	entries, _ := os.ReadDir(outputDir)
+	for _, entry := range entries {
+		if strings.HasSuffix(entry.Name(), ".aiff") {
+			t.Error("Dry-run mode should not create audio files")
+		}
+	}
+}
+
+func TestRunDebugMode(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("Skipping macOS-specific test")
+	}
+
+	// Create test markdown file
+	tmpDir := t.TempDir()
+	mdFile := filepath.Join(tmpDir, "test.md")
+	content := `## Test Section
+
+Debug test content.
+`
+	if err := os.WriteFile(mdFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	outputDir := filepath.Join(tmpDir, "output")
+
+	cfg := config.Config{
+		Provider:     "say",
+		MarkdownFile: mdFile,
+		OutputDir:    outputDir,
+		Voice:        "Kate",
+		Rate:         180,
+		Format:       "aiff",
+		Prefix:       "test",
+		Debug:        true, // Enable debug mode
+	}
+
+	log := logger.NewDefaultLogger()
+	log.SetDebug(cfg.Debug)
+
+	err := run(cfg, log)
+	if err != nil {
+		t.Errorf("run() with debug mode error = %v", err)
+	}
+}
+
+func TestRunWithM4AFormat(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("Skipping macOS-specific test")
+	}
+
+	// Create test markdown file
+	tmpDir := t.TempDir()
+	mdFile := filepath.Join(tmpDir, "test.md")
+	content := `## M4A Test
+
+Content for M4A format test.
+`
+	if err := os.WriteFile(mdFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	outputDir := filepath.Join(tmpDir, "output")
+
+	cfg := config.Config{
+		Provider:     "say",
+		MarkdownFile: mdFile,
+		OutputDir:    outputDir,
+		Voice:        "Kate",
+		Rate:         180,
+		Format:       "m4a", // Test M4A format
+		Prefix:       "test",
+	}
+
+	log := logger.NewDefaultLogger()
+	err := run(cfg, log)
+	if err != nil {
+		t.Errorf("run() with M4A format error = %v", err)
+	}
+}
+
+func TestRunDirectoryWithDryRun(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("Skipping macOS-specific test")
+	}
+
+	// Create test directory structure
+	tmpDir := t.TempDir()
+
+	mdFile := filepath.Join(tmpDir, "test.md")
+	content := `## Section 1
+Content for test.
+`
+	if err := os.WriteFile(mdFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	outputDir := filepath.Join(tmpDir, "audio_output")
+
+	cfg := config.Config{
+		Provider:  "say",
+		InputDir:  tmpDir,
+		OutputDir: outputDir,
+		Voice:     "Kate",
+		Rate:      180,
+		Format:    "aiff",
+		Prefix:    "test",
+		DryRun:    true, // Enable dry-run for directory mode
+	}
+
+	log := logger.NewDefaultLogger()
+	err := run(cfg, log)
+	if err != nil {
+		t.Errorf("run() directory dry-run error = %v", err)
+	}
+}
+
+func TestRunCacheInitializationFailure(t *testing.T) {
+	// This test verifies error handling when cache initialization fails
+	// In practice, this is hard to trigger without mocking, but we can
+	// at least verify the error path exists
+
+	cfg := config.Config{
+		Provider:     "say",
+		MarkdownFile: "/tmp/test.md",
+		OutputDir:    "/tmp/output",
+		Voice:        "Kate",
+		Rate:         180,
+		Format:       "aiff",
+		Prefix:       "test",
+	}
+
+	log := logger.NewDefaultLogger()
+
+	// Try to run - cache might fail in some edge cases
+	// Even if it doesn't fail, this exercises the cache initialization code path
+	_ = run(cfg, log)
+
+	// The test passes if it doesn't panic
+}

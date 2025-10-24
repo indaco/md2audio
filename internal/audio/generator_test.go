@@ -1,12 +1,16 @@
 package audio
 
 import (
+	"context"
+	"fmt"
 	"os/exec"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/indaco/md2audio/internal/logger"
 	"github.com/indaco/md2audio/internal/parser"
+	"github.com/indaco/md2audio/internal/tts"
 )
 
 func TestEstimateSpeakingRate(t *testing.T) {
@@ -293,4 +297,218 @@ func TestGenerateMethodExists(t *testing.T) {
 	// This will fail on the actual say command, but that's expected
 	_ = gen.Generate(section, 1)
 	// We don't check the error because it's expected to fail without proper setup
+}
+
+// MockProvider is a mock TTS provider for testing
+type MockProvider struct {
+	name         string
+	generateFunc func(string) (string, error)
+	lastText     string
+}
+
+func (m *MockProvider) Name() string {
+	return m.name
+}
+
+func (m *MockProvider) Generate(ctx context.Context, req tts.GenerateRequest) (string, error) {
+	m.lastText = req.Text
+	if m.generateFunc != nil {
+		return m.generateFunc(req.Text)
+	}
+	return req.OutputPath, nil
+}
+
+func (m *MockProvider) ListVoices(ctx context.Context) ([]tts.Voice, error) {
+	return []tts.Voice{}, nil
+}
+
+// TestGenerateWithMockProvider tests Generate with a mock provider
+func TestGenerateWithMockProvider(t *testing.T) {
+	tests := []struct {
+		name          string
+		section       parser.Section
+		config        GeneratorConfig
+		providerName  string
+		providerError error
+		expectError   bool
+	}{
+		{
+			name: "successful generation without timing",
+			section: parser.Section{
+				Title:     "Introduction",
+				Content:   "This is a test section without timing",
+				Duration:  0,
+				HasTiming: false,
+			},
+			config: GeneratorConfig{
+				Voice:     "Kate",
+				Rate:      180,
+				Format:    "aiff",
+				Prefix:    "test",
+				OutputDir: t.TempDir(),
+			},
+			providerName:  "say",
+			providerError: nil,
+			expectError:   false,
+		},
+		{
+			name: "successful generation with timing",
+			section: parser.Section{
+				Title:     "Timed Section",
+				Content:   "This section has a target duration",
+				Duration:  5.0,
+				HasTiming: true,
+			},
+			config: GeneratorConfig{
+				Voice:     "Kate",
+				Rate:      180,
+				Format:    "aiff",
+				Prefix:    "test",
+				OutputDir: t.TempDir(),
+			},
+			providerName:  "say",
+			providerError: nil,
+			expectError:   false,
+		},
+		{
+			name: "elevenlabs provider with mp3 format",
+			section: parser.Section{
+				Title:     "ElevenLabs Test",
+				Content:   "Testing ElevenLabs provider",
+				Duration:  0,
+				HasTiming: false,
+			},
+			config: GeneratorConfig{
+				Voice:     "Rachel",
+				Rate:      180,
+				Format:    "mp3",
+				Prefix:    "test",
+				OutputDir: t.TempDir(),
+			},
+			providerName:  "elevenlabs",
+			providerError: nil,
+			expectError:   false,
+		},
+		{
+			name: "say provider with m4a format conversion",
+			section: parser.Section{
+				Title:     "M4A Test",
+				Content:   "Testing m4a format conversion",
+				Duration:  0,
+				HasTiming: false,
+			},
+			config: GeneratorConfig{
+				Voice:     "Kate",
+				Rate:      180,
+				Format:    "m4a",
+				Prefix:    "test",
+				OutputDir: t.TempDir(),
+			},
+			providerName:  "say",
+			providerError: nil,
+			expectError:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			log := logger.NewDefaultLogger()
+
+			// Create mock provider
+			mockProvider := &MockProvider{
+				name: tt.providerName,
+				generateFunc: func(text string) (string, error) {
+					if tt.providerError != nil {
+						return "", tt.providerError
+					}
+					// Return a dummy path
+					return tt.config.OutputDir + "/test.aiff", nil
+				},
+			}
+
+			tt.config.Provider = mockProvider
+			gen := NewGenerator(tt.config, log)
+
+			err := gen.Generate(tt.section, 1)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got none")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+
+			// Verify the provider was called with the correct text
+			if mockProvider.lastText == "" && !tt.expectError {
+				t.Error("Provider was not called")
+			}
+			if mockProvider.lastText != "" && mockProvider.lastText != tt.section.Content {
+				t.Errorf("Provider received wrong text: got %q, want %q", mockProvider.lastText, tt.section.Content)
+			}
+		})
+	}
+}
+
+// TestGenerateWithNoProvider tests error handling when no provider is set
+func TestGenerateWithNoProvider(t *testing.T) {
+	log := logger.NewDefaultLogger()
+	gen := NewGenerator(GeneratorConfig{
+		Voice:     "Kate",
+		Rate:      180,
+		Format:    "aiff",
+		Prefix:    "test",
+		OutputDir: t.TempDir(),
+		Provider:  nil, // No provider set
+	}, log)
+
+	section := parser.Section{
+		Title:     "Test",
+		Content:   "Test content",
+		Duration:  0,
+		HasTiming: false,
+	}
+
+	err := gen.Generate(section, 1)
+	if err == nil {
+		t.Error("Expected error when no provider is configured")
+	}
+	if err != nil && err.Error() != "no TTS provider configured" {
+		t.Errorf("Expected 'no TTS provider configured' error, got: %v", err)
+	}
+}
+
+// TestGenerateWithProviderError tests error handling when provider fails
+func TestGenerateWithProviderError(t *testing.T) {
+	log := logger.NewDefaultLogger()
+
+	mockProvider := &MockProvider{
+		name: "say",
+		generateFunc: func(text string) (string, error) {
+			return "", fmt.Errorf("provider error: audio generation failed")
+		},
+	}
+
+	gen := NewGenerator(GeneratorConfig{
+		Voice:     "Kate",
+		Rate:      180,
+		Format:    "aiff",
+		Prefix:    "test",
+		OutputDir: t.TempDir(),
+		Provider:  mockProvider,
+	}, log)
+
+	section := parser.Section{
+		Title:     "Test",
+		Content:   "Test content",
+		Duration:  0,
+		HasTiming: false,
+	}
+
+	err := gen.Generate(section, 1)
+	if err == nil {
+		t.Error("Expected error when provider fails")
+	}
+	if err != nil && !strings.Contains(err.Error(), "error generating audio") {
+		t.Errorf("Expected 'error generating audio' in error message, got: %v", err)
+	}
 }
