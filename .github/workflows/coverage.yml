@@ -24,8 +24,8 @@ jobs:
       - name: Verify dependencies
         run: go mod verify
 
-      - name: Run go test
-        run: go test -count=1 -timeout 30s $(go list ./... | grep -Ev 'internal/testhelpers') -covermode=atomic -coverprofile=coverage.txt
+      - name: Run tests with coverage
+        run: bash scripts/test-coverage.sh
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5

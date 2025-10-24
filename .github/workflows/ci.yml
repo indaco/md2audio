@@ -54,4 +54,4 @@ jobs:
         run: go mod verify
 
       - name: Run tests
-        run: go test -count=1 -timeout 30s $(go list ./... | grep -Ev 'internal/testhelpers') -covermode=atomic
+        run: bash scripts/test-coverage.sh
