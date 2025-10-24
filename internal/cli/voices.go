@@ -38,12 +38,12 @@ func HandleVoiceCommands(cfg config.Config, voiceCache *cache.VoiceCache, log lo
 	cachedProvider := cache.NewCachedProvider(provider, voiceCache)
 	ctx := context.Background()
 
-	if cfg.ExportVoices != "" {
-		return ExportVoices(ctx, cachedProvider, provider.Name(), cfg.ExportVoices, log)
+	if cfg.Commands.ExportVoices != "" {
+		return ExportVoices(ctx, cachedProvider, provider.Name(), cfg.Commands.ExportVoices, log)
 	}
 
-	if cfg.ListVoices {
-		return ListVoices(ctx, cachedProvider, provider.Name(), cfg.RefreshCache, log)
+	if cfg.Commands.ListVoices {
+		return ListVoices(ctx, cachedProvider, provider.Name(), cfg.Commands.RefreshCache, log)
 	}
 
 	return nil
@@ -56,12 +56,12 @@ func CreateProvider(cfg config.Config) (tts.Provider, error) {
 		return say.NewProvider()
 	case "elevenlabs":
 		return elevenlabs.NewClient(elevenlabs.Config{
-			APIKey:          cfg.ElevenLabsAPIKey,
-			Stability:       cfg.ElevenLabsStability,
-			SimilarityBoost: cfg.ElevenLabsSimilarityBoost,
-			Style:           cfg.ElevenLabsStyle,
-			UseSpeakerBoost: cfg.ElevenLabsUseSpeakerBoost,
-			Speed:           cfg.ElevenLabsSpeed,
+			APIKey:          cfg.ElevenLabs.APIKey,
+			Stability:       cfg.ElevenLabs.VoiceSettings.Stability,
+			SimilarityBoost: cfg.ElevenLabs.VoiceSettings.SimilarityBoost,
+			Style:           cfg.ElevenLabs.VoiceSettings.Style,
+			UseSpeakerBoost: cfg.ElevenLabs.VoiceSettings.UseSpeakerBoost,
+			Speed:           cfg.ElevenLabs.VoiceSettings.Speed,
 		})
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", cfg.Provider)

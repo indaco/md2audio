@@ -21,8 +21,10 @@ func TestRunValidation(t *testing.T) {
 		{
 			name: "missing both file and directory",
 			cfg: config.Config{
-				Voice:  "Kate",
-				Rate:   180,
+				Say: config.SayConfig{
+					Voice: "Kate",
+					Rate:  180,
+				},
 				Format: "aiff",
 			},
 			expectError: true,
@@ -33,9 +35,11 @@ func TestRunValidation(t *testing.T) {
 			cfg: config.Config{
 				MarkdownFile: "test.md",
 				InputDir:     "./docs",
-				Voice:        "Kate",
-				Rate:         180,
-				Format:       "aiff",
+				Say: config.SayConfig{
+					Voice: "Kate",
+					Rate:  180,
+				},
+				Format: "aiff",
 			},
 			expectError: true,
 			errorMsg:    "cannot use both -f and -d flags",
@@ -68,8 +72,10 @@ func TestRunListVoices(t *testing.T) {
 	}
 
 	cfg := config.Config{
-		Provider:   "say",
-		ListVoices: true,
+		Provider: "say",
+		Commands: config.CommandFlags{
+			ListVoices: true,
+		},
 	}
 
 	log := logger.NewDefaultLogger()
@@ -101,10 +107,12 @@ This is test content for audio generation.
 		Provider:     "say",
 		MarkdownFile: mdFile,
 		OutputDir:    outputDir,
-		Voice:        "Kate",
-		Rate:         180,
-		Format:       "aiff",
-		Prefix:       "test",
+		Say: config.SayConfig{
+			Voice: "Kate",
+			Rate:  180,
+		},
+		Format: "aiff",
+		Prefix: "test",
 	}
 
 	log := logger.NewDefaultLogger()
@@ -141,10 +149,12 @@ Content for test.
 		Provider:  "say",
 		InputDir:  tmpDir,
 		OutputDir: outputDir,
-		Voice:     "Kate",
-		Rate:      180,
-		Format:    "aiff",
-		Prefix:    "test",
+		Say: config.SayConfig{
+			Voice: "Kate",
+			Rate:  180,
+		},
+		Format: "aiff",
+		Prefix: "test",
 	}
 
 	log := logger.NewDefaultLogger()
@@ -167,10 +177,12 @@ func TestRunNonExistentFile(t *testing.T) {
 		Provider:     "say",
 		MarkdownFile: nonExistent,
 		OutputDir:    filepath.Join(tmpDir, "output"),
-		Voice:        "Kate",
-		Rate:         180,
-		Format:       "aiff",
-		Prefix:       "test",
+		Say: config.SayConfig{
+			Voice: "Kate",
+			Rate:  180,
+		},
+		Format: "aiff",
+		Prefix: "test",
 	}
 
 	log := logger.NewDefaultLogger()
@@ -187,10 +199,12 @@ func TestRunEmptyDirectory(t *testing.T) {
 		Provider:  "say",
 		InputDir:  tmpDir,
 		OutputDir: filepath.Join(tmpDir, "output"),
-		Voice:     "Kate",
-		Rate:      180,
-		Format:    "aiff",
-		Prefix:    "test",
+		Say: config.SayConfig{
+			Voice: "Kate",
+			Rate:  180,
+		},
+		Format: "aiff",
+		Prefix: "test",
 	}
 
 	log := logger.NewDefaultLogger()
@@ -214,8 +228,10 @@ func TestRunExportVoices(t *testing.T) {
 	exportPath := filepath.Join(tmpDir, "voices.json")
 
 	cfg := config.Config{
-		Provider:     "say",
-		ExportVoices: exportPath,
+		Provider: "say",
+		Commands: config.CommandFlags{
+			ExportVoices: exportPath,
+		},
 	}
 
 	log := logger.NewDefaultLogger()
@@ -252,11 +268,15 @@ This is test content for dry-run.
 		Provider:     "say",
 		MarkdownFile: mdFile,
 		OutputDir:    outputDir,
-		Voice:        "Kate",
-		Rate:         180,
-		Format:       "aiff",
-		Prefix:       "test",
-		DryRun:       true, // Enable dry-run mode
+		Say: config.SayConfig{
+			Voice: "Kate",
+			Rate:  180,
+		},
+		Format: "aiff",
+		Prefix: "test",
+		Commands: config.CommandFlags{
+			DryRun: true,
+		},
 	}
 
 	log := logger.NewDefaultLogger()
@@ -297,15 +317,19 @@ Debug test content.
 		Provider:     "say",
 		MarkdownFile: mdFile,
 		OutputDir:    outputDir,
-		Voice:        "Kate",
-		Rate:         180,
-		Format:       "aiff",
-		Prefix:       "test",
-		Debug:        true, // Enable debug mode
+		Say: config.SayConfig{
+			Voice: "Kate",
+			Rate:  180,
+		},
+		Format: "aiff",
+		Prefix: "test",
+		Commands: config.CommandFlags{
+			DryRun: true,
+		},
 	}
 
 	log := logger.NewDefaultLogger()
-	log.SetDebug(cfg.Debug)
+	log.SetDebug(cfg.Commands.Debug)
 
 	err := run(cfg, log)
 	if err != nil {
@@ -335,10 +359,12 @@ Content for M4A format test.
 		Provider:     "say",
 		MarkdownFile: mdFile,
 		OutputDir:    outputDir,
-		Voice:        "Kate",
-		Rate:         180,
-		Format:       "m4a", // Test M4A format
-		Prefix:       "test",
+		Say: config.SayConfig{
+			Voice: "Kate",
+			Rate:  180,
+		},
+		Format: "m4a", // Test M4A format
+		Prefix: "test",
 	}
 
 	log := logger.NewDefaultLogger()
@@ -370,11 +396,15 @@ Content for test.
 		Provider:  "say",
 		InputDir:  tmpDir,
 		OutputDir: outputDir,
-		Voice:     "Kate",
-		Rate:      180,
-		Format:    "aiff",
-		Prefix:    "test",
-		DryRun:    true, // Enable dry-run for directory mode
+		Say: config.SayConfig{
+			Voice: "Kate",
+			Rate:  180,
+		},
+		Format: "aiff",
+		Prefix: "test",
+		Commands: config.CommandFlags{
+			DryRun: true, // Enable dry-run for directory mode
+		},
 	}
 
 	log := logger.NewDefaultLogger()
@@ -393,10 +423,12 @@ func TestRunCacheInitializationFailure(t *testing.T) {
 		Provider:     "say",
 		MarkdownFile: "/tmp/test.md",
 		OutputDir:    "/tmp/output",
-		Voice:        "Kate",
-		Rate:         180,
-		Format:       "aiff",
-		Prefix:       "test",
+		Say: config.SayConfig{
+			Voice: "Kate",
+			Rate:  180,
+		},
+		Format: "aiff",
+		Prefix: "test",
 	}
 
 	log := logger.NewDefaultLogger()

@@ -34,6 +34,39 @@ var VoicePresets = map[string]string{
 // DefaultElevenLabsVoiceID is the default voice for ElevenLabs (Rachel)
 const DefaultElevenLabsVoiceID = "21m00Tcm4TlvDq8ikWAM"
 
+// CommandFlags holds command-line flags for special operations
+type CommandFlags struct {
+	ListVoices   bool   // List all available voices for the selected provider
+	RefreshCache bool   // Force refresh voice cache when listing voices
+	ExportVoices string // Export cached voices to JSON file (e.g., "voices.json")
+	Version      bool   // Print version and exit
+	Debug        bool   // Enable debug logging
+	DryRun       bool   // Dry-run mode: show what would be generated without creating files
+}
+
+// SayConfig holds configuration for the macOS say provider
+type SayConfig struct {
+	Voice string // Voice name (default: "Kate")
+	Rate  int    // Speaking rate in words per minute (default: 180)
+}
+
+// VoiceSettings holds ElevenLabs voice generation settings
+type VoiceSettings struct {
+	Stability       float64 // Voice consistency (0.0-1.0, default: 0.5, higher = more consistent but less expressive)
+	SimilarityBoost float64 // Voice similarity to original (0.0-1.0, default: 0.5, higher = closer to voice characteristics)
+	Style           float64 // Voice style/emotional range (0.0-1.0, default: 0.0 = disabled, higher = more expressive)
+	UseSpeakerBoost bool    // Boost similarity of synthesized speech (default: true)
+	Speed           float64 // Speaking speed multiplier (0.7-1.2, default: 1.0, only for non-timed sections)
+}
+
+// ElevenLabsConfig holds configuration for the ElevenLabs provider
+type ElevenLabsConfig struct {
+	VoiceID       string        // ElevenLabs voice ID (required when using elevenlabs provider)
+	Model         string        // ElevenLabs model ID (default: "eleven_monolingual_v1")
+	APIKey        string        // ElevenLabs API key (prefer ELEVENLABS_API_KEY env var)
+	VoiceSettings VoiceSettings // Voice generation settings (loaded from environment variables with defaults)
+}
+
 // Config holds the application configuration
 type Config struct {
 	// Input/Output Options
@@ -41,34 +74,17 @@ type Config struct {
 	InputDir     string // Path to input directory for recursive processing (mutually exclusive with MarkdownFile)
 	OutputDir    string // Path to output directory for generated audio files (default: "./audio_sections")
 
-	// Say Provider Options (macOS only)
-	Voice string // Voice name for say provider (default: "Kate")
-	Rate  int    // Speaking rate in words per minute for say provider (default: 180)
-
 	// Common Audio Options
 	Format string // Output audio format: "aiff", "m4a", or "mp3" (default: "aiff")
 	Prefix string // Prefix for output filenames (default: "section")
 
 	// Command Options
-	ListVoices   bool   // List all available voices for the selected provider
-	RefreshCache bool   // Force refresh voice cache when listing voices
-	ExportVoices string // Export cached voices to JSON file (e.g., "voices.json")
-	Version      bool   // Print version and exit
-	Debug        bool   // Enable debug logging
-	DryRun       bool   // Dry-run mode: show what would be generated without creating files
+	Commands CommandFlags
 
 	// TTS Provider Configuration
-	Provider          string // TTS provider: "say" (macOS) or "elevenlabs" (default: "say")
-	ElevenLabsVoiceID string // ElevenLabs voice ID (required when using elevenlabs provider)
-	ElevenLabsModel   string // ElevenLabs model ID (default: "eleven_monolingual_v1")
-	ElevenLabsAPIKey  string // ElevenLabs API key (prefer ELEVENLABS_API_KEY env var)
-
-	// ElevenLabs Voice Settings (optional, loaded from environment variables with defaults)
-	ElevenLabsStability       float64 // Voice consistency (0.0-1.0, default: 0.5, higher = more consistent but less expressive)
-	ElevenLabsSimilarityBoost float64 // Voice similarity to original (0.0-1.0, default: 0.5, higher = closer to voice characteristics)
-	ElevenLabsStyle           float64 // Voice style/emotional range (0.0-1.0, default: 0.0 = disabled, higher = more expressive)
-	ElevenLabsUseSpeakerBoost bool    // Boost similarity of synthesized speech (default: true)
-	ElevenLabsSpeed           float64 // Speaking speed multiplier (0.7-1.2, default: 1.0, only for non-timed sections)
+	Provider   string           // TTS provider: "say" (macOS) or "elevenlabs" (default: "say")
+	Say        SayConfig        // Say provider configuration
+	ElevenLabs ElevenLabsConfig // ElevenLabs provider configuration
 }
 
 // Parse parses command-line flags and returns the configuration
@@ -94,23 +110,23 @@ func Parse() Config {
 	// Say provider options
 	var preset string
 	flag.StringVar(&preset, "p", "", "Voice preset for say provider (british-female, british-male, us-female, us-male, australian-female, indian-female)")
-	flag.StringVar(&config.Voice, "v", "", "Specific voice name for say provider (overrides preset)")
-	flag.IntVar(&config.Rate, "r", 180, "Speaking rate for say provider (lower = slower)")
+	flag.StringVar(&config.Say.Voice, "v", "", "Specific voice name for say provider (overrides preset)")
+	flag.IntVar(&config.Say.Rate, "r", 180, "Speaking rate for say provider (lower = slower)")
 
 	// ElevenLabs provider options
-	flag.StringVar(&config.ElevenLabsVoiceID, "elevenlabs-voice-id", "", "ElevenLabs voice ID (e.g., '21m00Tcm4TlvDq8ikWAM')")
-	flag.StringVar(&config.ElevenLabsModel, "elevenlabs-model", "eleven_monolingual_v1", "ElevenLabs model ID")
-	flag.StringVar(&config.ElevenLabsAPIKey, "elevenlabs-api-key", "", "ElevenLabs API key (prefer ELEVENLABS_API_KEY env var)")
+	flag.StringVar(&config.ElevenLabs.VoiceID, "elevenlabs-voice-id", "", "ElevenLabs voice ID (e.g., '21m00Tcm4TlvDq8ikWAM')")
+	flag.StringVar(&config.ElevenLabs.Model, "elevenlabs-model", "eleven_monolingual_v1", "ElevenLabs model ID")
+	flag.StringVar(&config.ElevenLabs.APIKey, "elevenlabs-api-key", "", "ElevenLabs API key (prefer ELEVENLABS_API_KEY env var)")
 
 	// Common options
 	flag.StringVar(&config.Format, "format", "aiff", "Output audio format (aiff, m4a, mp3)")
 	flag.StringVar(&config.Prefix, "prefix", "section", "Prefix for output filenames")
-	flag.BoolVar(&config.ListVoices, "list-voices", false, "List all available voices (uses cache if available)")
-	flag.BoolVar(&config.RefreshCache, "refresh-cache", false, "Force refresh of voice cache when listing voices")
-	flag.StringVar(&config.ExportVoices, "export-voices", "", "Export cached voices to JSON file (e.g., voices.json)")
-	flag.BoolVar(&config.Version, "version", false, "Print version and exit")
-	flag.BoolVar(&config.Debug, "debug", false, "Enable debug logging")
-	flag.BoolVar(&config.DryRun, "dry-run", false, "Show what would be generated without creating files")
+	flag.BoolVar(&config.Commands.ListVoices, "list-voices", false, "List all available voices (uses cache if available)")
+	flag.BoolVar(&config.Commands.RefreshCache, "refresh-cache", false, "Force refresh of voice cache when listing voices")
+	flag.StringVar(&config.Commands.ExportVoices, "export-voices", "", "Export cached voices to JSON file (e.g., voices.json)")
+	flag.BoolVar(&config.Commands.Version, "version", false, "Print version and exit")
+	flag.BoolVar(&config.Commands.Debug, "debug", false, "Enable debug logging")
+	flag.BoolVar(&config.Commands.DryRun, "dry-run", false, "Show what would be generated without creating files")
 
 	flag.Usage = func() {
 		log.Default("Markdown to Audio Generator")
@@ -155,23 +171,23 @@ func Parse() Config {
 	flag.Parse()
 
 	// Return early if version flag is set (skip all initialization)
-	if config.Version {
+	if config.Commands.Version {
 		return config
 	}
 
 	// Determine voice to use (only for say provider)
 	if config.Provider == "say" || config.Provider == "" {
-		if config.Voice != "" {
+		if config.Say.Voice != "" {
 			// Explicit voice specified, use it
 		} else if preset != "" {
 			if voice, ok := VoicePresets[preset]; ok {
-				config.Voice = voice
+				config.Say.Voice = voice
 			} else {
 				fmt.Printf("Unknown preset: %s, using default voice 'Kate'\n", preset)
-				config.Voice = "Kate"
+				config.Say.Voice = "Kate"
 			}
-		} else if !config.ListVoices {
-			config.Voice = "Kate"
+		} else if !config.Commands.ListVoices {
+			config.Say.Voice = "Kate"
 			fmt.Println("No voice specified, using default: Kate")
 		}
 	}
@@ -182,18 +198,18 @@ func Parse() Config {
 	}
 
 	// Set default ElevenLabs voice if not specified and not listing voices
-	if config.Provider == "elevenlabs" && config.ElevenLabsVoiceID == "" && !config.ListVoices {
-		config.ElevenLabsVoiceID = DefaultElevenLabsVoiceID
+	if config.Provider == "elevenlabs" && config.ElevenLabs.VoiceID == "" && !config.Commands.ListVoices {
+		config.ElevenLabs.VoiceID = DefaultElevenLabsVoiceID
 		fmt.Println("No ElevenLabs voice specified, using default: Rachel (21m00Tcm4TlvDq8ikWAM)")
 	}
 
 	// Load ElevenLabs voice settings from environment variables (with defaults)
 	if config.Provider == "elevenlabs" {
-		config.ElevenLabsStability = getEnvFloat("ELEVENLABS_STABILITY", 0.5)
-		config.ElevenLabsSimilarityBoost = getEnvFloat("ELEVENLABS_SIMILARITY_BOOST", 0.5)
-		config.ElevenLabsStyle = getEnvFloat("ELEVENLABS_STYLE", 0.0)
-		config.ElevenLabsUseSpeakerBoost = getEnvBool("ELEVENLABS_USE_SPEAKER_BOOST", true)
-		config.ElevenLabsSpeed = getEnvFloat("ELEVENLABS_SPEED", 1.0)
+		config.ElevenLabs.VoiceSettings.Stability = getEnvFloat("ELEVENLABS_STABILITY", 0.5)
+		config.ElevenLabs.VoiceSettings.SimilarityBoost = getEnvFloat("ELEVENLABS_SIMILARITY_BOOST", 0.5)
+		config.ElevenLabs.VoiceSettings.Style = getEnvFloat("ELEVENLABS_STYLE", 0.0)
+		config.ElevenLabs.VoiceSettings.UseSpeakerBoost = getEnvBool("ELEVENLABS_USE_SPEAKER_BOOST", true)
+		config.ElevenLabs.VoiceSettings.Speed = getEnvFloat("ELEVENLABS_SPEED", 1.0)
 	}
 
 	return config
@@ -227,7 +243,7 @@ func (c Config) Validate() error {
 	}
 
 	// Check that at least one input is provided (unless listing voices)
-	if !c.ListVoices && c.MarkdownFile == "" && c.InputDir == "" {
+	if !c.Commands.ListVoices && c.MarkdownFile == "" && c.InputDir == "" {
 		return fmt.Errorf("either -f (file) or -d (directory) is required")
 	}
 
@@ -237,8 +253,8 @@ func (c Config) Validate() error {
 	}
 
 	// Validate provider-specific requirements
-	if c.Provider == "elevenlabs" && !c.ListVoices {
-		if c.ElevenLabsVoiceID == "" {
+	if c.Provider == "elevenlabs" && !c.Commands.ListVoices {
+		if c.ElevenLabs.VoiceID == "" {
 			return fmt.Errorf("ElevenLabs voice ID is required: use -elevenlabs-voice-id flag")
 		}
 	}
@@ -277,15 +293,15 @@ func (c Config) Print() {
 	// Provider-specific configuration
 	switch c.Provider {
 	case "say":
-		fmt.Printf("  Voice: %s\n", c.Voice)
-		fmt.Printf("  Rate: %d\n", c.Rate)
+		fmt.Printf("  Voice: %s\n", c.Say.Voice)
+		fmt.Printf("  Rate: %d\n", c.Say.Rate)
 	case "elevenlabs":
-		fmt.Printf("  Voice ID: %s\n", c.ElevenLabsVoiceID)
-		fmt.Printf("  Model: %s\n", c.ElevenLabsModel)
+		fmt.Printf("  Voice ID: %s\n", c.ElevenLabs.VoiceID)
+		fmt.Printf("  Model: %s\n", c.ElevenLabs.Model)
 		// API key is intentionally not printed for security
 		// If debugging is needed, check environment variable ELEVENLABS_API_KEY
-		if c.ElevenLabsAPIKey != "" {
-			fmt.Printf("  API Key: %s\n", maskSecret(c.ElevenLabsAPIKey))
+		if c.ElevenLabs.APIKey != "" {
+			fmt.Printf("  API Key: %s\n", maskSecret(c.ElevenLabs.APIKey))
 		}
 	}
 

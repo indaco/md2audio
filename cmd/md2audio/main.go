@@ -27,7 +27,7 @@ func run(cfg config.Config, log logger.LoggerInterface) error {
 	}()
 
 	// Handle voice-related commands
-	if cfg.ListVoices || cfg.ExportVoices != "" {
+	if cfg.Commands.ListVoices || cfg.Commands.ExportVoices != "" {
 		return cli.HandleVoiceCommands(cfg, voiceCache, log)
 	}
 
@@ -52,10 +52,10 @@ func main() {
 	cfg := config.Parse()
 
 	// Enable debug logging if requested
-	log.SetDebug(cfg.Debug)
+	log.SetDebug(cfg.Commands.Debug)
 
 	// Handle version flag
-	if cfg.Version {
+	if cfg.Commands.Version {
 		fmt.Printf("md2audio version %s\n", version.GetVersion())
 		return
 	}

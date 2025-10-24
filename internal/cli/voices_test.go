@@ -44,8 +44,10 @@ func TestCreateProvider(t *testing.T) {
 		{
 			name: "elevenlabs provider with API key",
 			cfg: config.Config{
-				Provider:         "elevenlabs",
-				ElevenLabsAPIKey: "test-key-123",
+				Provider: "elevenlabs",
+				ElevenLabs: config.ElevenLabsConfig{
+					APIKey: "test-key-123",
+				},
 			},
 			expectError:  false,
 			expectedName: "elevenlabs",
@@ -417,8 +419,10 @@ func TestHandleVoiceCommands(t *testing.T) {
 
 	t.Run("list voices", func(t *testing.T) {
 		cfg := config.Config{
-			Provider:   "say",
-			ListVoices: true,
+			Provider: "say",
+			Commands: config.CommandFlags{
+				ListVoices: true,
+			},
 		}
 
 		err := HandleVoiceCommands(cfg, voiceCache, log)
@@ -432,8 +436,10 @@ func TestHandleVoiceCommands(t *testing.T) {
 		outputPath := filepath.Join(tmpDir, "voices.json")
 
 		cfg := config.Config{
-			Provider:     "say",
-			ExportVoices: outputPath,
+			Provider: "say",
+			Commands: config.CommandFlags{
+				ExportVoices: outputPath,
+			},
 		}
 
 		err := HandleVoiceCommands(cfg, voiceCache, log)
@@ -448,8 +454,10 @@ func TestHandleVoiceCommands(t *testing.T) {
 
 	t.Run("invalid provider", func(t *testing.T) {
 		cfg := config.Config{
-			Provider:   "invalid",
-			ListVoices: true,
+			Provider: "invalid",
+			Commands: config.CommandFlags{
+				ListVoices: true,
+			},
 		}
 
 		err := HandleVoiceCommands(cfg, voiceCache, log)

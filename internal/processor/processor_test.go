@@ -36,10 +36,12 @@ More content here with timing.
 
 	cfg := config.Config{
 		Provider: "say",
-		Voice:    "Kate",
-		Rate:     180,
-		Format:   "aiff",
-		Prefix:   "test",
+		Say: config.SayConfig{
+			Voice: "Kate",
+			Rate:  180,
+		},
+		Format: "aiff",
+		Prefix: "test",
 	}
 
 	log := logger.NewDefaultLogger()
@@ -78,10 +80,12 @@ func TestProcessFileInvalidMarkdown(t *testing.T) {
 
 	cfg := config.Config{
 		Provider: "say",
-		Voice:    "Kate",
-		Rate:     180,
-		Format:   "aiff",
-		Prefix:   "test",
+		Say: config.SayConfig{
+			Voice: "Kate",
+			Rate:  180,
+		},
+		Format: "aiff",
+		Prefix: "test",
 	}
 
 	// Should not error, but should return 0 sections processed
@@ -99,10 +103,12 @@ func TestProcessFileNonExistent(t *testing.T) {
 
 	cfg := config.Config{
 		Provider: "say",
-		Voice:    "Kate",
-		Rate:     180,
-		Format:   "aiff",
-		Prefix:   "test",
+		Say: config.SayConfig{
+			Voice: "Kate",
+			Rate:  180,
+		},
+		Format: "aiff",
+		Prefix: "test",
 	}
 
 	log := logger.NewDefaultLogger()
@@ -143,9 +149,11 @@ Content for file 3.`,
 	outputDir := filepath.Join(tmpDir, "audio_output")
 
 	cfg := config.Config{
-		InputDir:  tmpDir,
-		Voice:     "Kate",
-		Rate:      180,
+		InputDir: tmpDir,
+		Say: config.SayConfig{
+			Voice: "Kate",
+			Rate:  180,
+		},
 		Format:    "aiff",
 		Prefix:    "test",
 		OutputDir: outputDir,
@@ -182,10 +190,12 @@ func TestProcessDirectoryEmpty(t *testing.T) {
 	cfg := config.Config{
 		InputDir:  tmpDir,
 		OutputDir: filepath.Join(tmpDir, "output"),
-		Voice:     "Kate",
-		Rate:      180,
-		Format:    "aiff",
-		Prefix:    "test",
+		Say: config.SayConfig{
+			Voice: "Kate",
+			Rate:  180,
+		},
+		Format: "aiff",
+		Prefix: "test",
 	}
 
 	log := logger.NewDefaultLogger()
@@ -207,10 +217,12 @@ func TestProcessDirectoryNonExistent(t *testing.T) {
 	cfg := config.Config{
 		InputDir:  nonExistent,
 		OutputDir: filepath.Join(tmpDir, "output"),
-		Voice:     "Kate",
-		Rate:      180,
-		Format:    "aiff",
-		Prefix:    "test",
+		Say: config.SayConfig{
+			Voice: "Kate",
+			Rate:  180,
+		},
+		Format: "aiff",
+		Prefix: "test",
 	}
 
 	log := logger.NewDefaultLogger()
@@ -247,10 +259,12 @@ func TestProcessFileWithDifferentFormats(t *testing.T) {
 
 			cfg := config.Config{
 				Provider: "say",
-				Voice:    "Kate",
-				Rate:     180,
-				Format:   tt.format,
-				Prefix:   "test",
+				Say: config.SayConfig{
+					Voice: "Kate",
+					Rate:  180,
+				},
+				Format: tt.format,
+				Prefix: "test",
 			}
 
 			log := logger.NewDefaultLogger()
@@ -285,11 +299,15 @@ Content with timing annotation.
 
 	cfg := config.Config{
 		Provider: "say",
-		Voice:    "Kate",
-		Rate:     180,
-		Format:   "aiff",
-		Prefix:   "test",
-		DryRun:   true, // Enable dry-run mode
+		Say: config.SayConfig{
+			Voice: "Kate",
+			Rate:  180,
+		},
+		Format: "aiff",
+		Prefix: "test",
+		Commands: config.CommandFlags{
+			DryRun: true, // Enable dry-run mode
+		},
 	}
 
 	log := logger.NewDefaultLogger()
@@ -320,10 +338,12 @@ func TestProcessFileInvalidProvider(t *testing.T) {
 
 	cfg := config.Config{
 		Provider: "invalid-provider", // Invalid provider
-		Voice:    "Kate",
-		Rate:     180,
-		Format:   "aiff",
-		Prefix:   "test",
+		Say: config.SayConfig{
+			Voice: "Kate",
+			Rate:  180,
+		},
+		Format: "aiff",
+		Prefix: "test",
 	}
 
 	log := logger.NewDefaultLogger()
@@ -362,10 +382,12 @@ func TestProcessFileReadOnlyOutputDir(t *testing.T) {
 
 	cfg := config.Config{
 		Provider: "say",
-		Voice:    "Kate",
-		Rate:     180,
-		Format:   "aiff",
-		Prefix:   "test",
+		Say: config.SayConfig{
+			Voice: "Kate",
+			Rate:  180,
+		},
+		Format: "aiff",
+		Prefix: "test",
 	}
 
 	log := logger.NewDefaultLogger()
@@ -403,10 +425,12 @@ Valid content.`
 		Provider:  "say",
 		InputDir:  tmpDir,
 		OutputDir: outputDir,
-		Voice:     "Kate",
-		Rate:      180,
-		Format:    "aiff",
-		Prefix:    "test",
+		Say: config.SayConfig{
+			Voice: "Kate",
+			Rate:  180,
+		},
+		Format: "aiff",
+		Prefix: "test",
 	}
 
 	log := logger.NewDefaultLogger()
@@ -450,10 +474,12 @@ func TestProcessDirectoryWithSubdirectories(t *testing.T) {
 		Provider:  "say",
 		InputDir:  tmpDir,
 		OutputDir: outputDir,
-		Voice:     "Kate",
-		Rate:      180,
-		Format:    "aiff",
-		Prefix:    "test",
+		Say: config.SayConfig{
+			Voice: "Kate",
+			Rate:  180,
+		},
+		Format: "aiff",
+		Prefix: "test",
 	}
 
 	log := logger.NewDefaultLogger()
@@ -494,11 +520,13 @@ func TestProcessFileElevenLabsProvider(t *testing.T) {
 	outputDir := filepath.Join(tmpDir, "output")
 
 	cfg := config.Config{
-		Provider:          "elevenlabs",
-		ElevenLabsVoiceID: "test-voice-id",
-		ElevenLabsAPIKey:  "", // Missing API key
-		Format:            "mp3",
-		Prefix:            "test",
+		Provider: "elevenlabs",
+		ElevenLabs: config.ElevenLabsConfig{
+			VoiceID: "test-voice-id",
+			APIKey:  "", // Missing API key
+		},
+		Format: "mp3",
+		Prefix: "test",
 	}
 
 	log := logger.NewDefaultLogger()
@@ -533,11 +561,15 @@ func TestProcessFileLongSectionTitle(t *testing.T) {
 
 	cfg := config.Config{
 		Provider: "say",
-		Voice:    "Kate",
-		Rate:     180,
-		Format:   "aiff",
-		Prefix:   "test",
-		DryRun:   true, // Use dry-run to avoid actual file creation
+		Say: config.SayConfig{
+			Voice: "Kate",
+			Rate:  180,
+		},
+		Format: "aiff",
+		Prefix: "test",
+		Commands: config.CommandFlags{
+			DryRun: true, // Use dry-run to avoid actual file creation
+		},
 	}
 
 	log := logger.NewDefaultLogger()
@@ -568,11 +600,15 @@ Content with special characters in section title.
 
 	cfg := config.Config{
 		Provider: "say",
-		Voice:    "Kate",
-		Rate:     180,
-		Format:   "aiff",
-		Prefix:   "test",
-		DryRun:   true,
+		Say: config.SayConfig{
+			Voice: "Kate",
+			Rate:  180,
+		},
+		Format: "aiff",
+		Prefix: "test",
+		Commands: config.CommandFlags{
+			DryRun: true,
+		},
 	}
 
 	log := logger.NewDefaultLogger()

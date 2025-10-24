@@ -142,15 +142,15 @@ func processSingleFile(markdownFile, outputDir string, cfg config.Config, log lo
 	log.Blank()
 
 	// Determine voice to use based on provider
-	voice := cfg.Voice
+	voice := cfg.Say.Voice
 	if cfg.Provider == "elevenlabs" {
-		voice = cfg.ElevenLabsVoiceID
+		voice = cfg.ElevenLabs.VoiceID
 	}
 
 	// Create audio generator
 	generator := audio.NewGenerator(audio.GeneratorConfig{
 		Voice:     voice,
-		Rate:      cfg.Rate,
+		Rate:      cfg.Say.Rate,
 		Format:    cfg.Format,
 		Prefix:    cfg.Prefix,
 		OutputDir: outputDir,
@@ -158,7 +158,7 @@ func processSingleFile(markdownFile, outputDir string, cfg config.Config, log lo
 	}, log)
 
 	// Dry-run mode: show what would be generated
-	if cfg.DryRun {
+	if cfg.Commands.DryRun {
 		return handleDryRun(sections, outputDir, cfg, log)
 	}
 
