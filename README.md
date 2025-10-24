@@ -1,9 +1,6 @@
 <h1 align="center">
     md2audio
 </h1>
-<h2 align="center" style="font-size: 1.5em;">
-  Markdown to Audio Generator.
-</h2>
 <p align="center">
   <a href="https://github.com/indaco/md2audio/actions/workflows/ci.yml" target="_blank">
     <img src="https://github.com/indaco/md2audio/actions/workflows/ci.yml/badge.svg" alt="CI" />
