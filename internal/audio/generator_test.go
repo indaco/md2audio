@@ -5,6 +5,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/indaco/md2audio/internal/logger"
 	"github.com/indaco/md2audio/internal/parser"
 )
 
@@ -69,7 +70,8 @@ func TestEstimateSpeakingRate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := estimateSpeakingRate(tt.text, tt.targetDuration)
+			log := logger.NewDefaultLogger()
+			result := estimateSpeakingRate(tt.text, tt.targetDuration, log)
 
 			// Allow small variance due to rounding and 0.95 adjustment factor
 			tolerance := 5
@@ -112,7 +114,8 @@ func TestEstimateSpeakingRateBoundaries(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := estimateSpeakingRate(tt.text, tt.duration)
+			log := logger.NewDefaultLogger()
+			result := estimateSpeakingRate(tt.text, tt.duration, log)
 			if result < tt.minRate || result > tt.maxRate {
 				t.Errorf("Expected rate between %d and %d, got %d", tt.minRate, tt.maxRate, result)
 			}
@@ -149,7 +152,8 @@ func TestNewGenerator(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gen := NewGenerator(tt.config)
+			log := logger.NewDefaultLogger()
+			gen := NewGenerator(tt.config, log)
 
 			if gen == nil {
 				t.Fatal("NewGenerator() returned nil")
@@ -178,7 +182,8 @@ func TestNewGenerator(t *testing.T) {
 
 func TestGeneratorConfigDefaults(t *testing.T) {
 	config := GeneratorConfig{}
-	gen := NewGenerator(config)
+	log := logger.NewDefaultLogger()
+	gen := NewGenerator(config, log)
 
 	if gen == nil {
 		t.Fatal("NewGenerator() with empty config returned nil")
@@ -230,7 +235,8 @@ func TestGeneratorConfigVariations(t *testing.T) {
 	}
 
 	for i, cfg := range configs {
-		gen := NewGenerator(cfg)
+		log := logger.NewDefaultLogger()
+		gen := NewGenerator(cfg, log)
 		if gen == nil {
 			t.Errorf("Config %d: NewGenerator() returned nil", i)
 		}
@@ -246,7 +252,8 @@ func TestEstimateSpeakingRateRealistic(t *testing.T) {
 
 	targetDuration := 8.0 // From "SCENE 1: Hero Section (8s)"
 
-	rate := estimateSpeakingRate(text, targetDuration)
+	log := logger.NewDefaultLogger()
+	rate := estimateSpeakingRate(text, targetDuration, log)
 
 	// Should be somewhere in the reasonable range
 	if rate < 150 || rate > 300 {
@@ -265,13 +272,14 @@ func repeat(s string, count int) string {
 
 // Test that Generate method exists and has correct signature
 func TestGenerateMethodExists(t *testing.T) {
+	log := logger.NewDefaultLogger()
 	gen := NewGenerator(GeneratorConfig{
 		Voice:     "Kate",
 		Rate:      180,
 		Format:    "aiff",
 		Prefix:    "test",
 		OutputDir: t.TempDir(),
-	})
+	}, log)
 
 	section := parser.Section{
 		Title:     "Test",

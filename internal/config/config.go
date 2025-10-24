@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/indaco/md2audio/internal/env"
+	"github.com/indaco/md2audio/internal/logger"
 )
 
 // VoicePresets maps common voice configurations to voice names
@@ -62,6 +63,9 @@ func Parse() Config {
 	// Load .env file if it exists (won't override existing env vars)
 	_, _ = env.Load(".env")
 
+	// Create logger for help message
+	log := logger.NewDefaultLogger()
+
 	config := Config{}
 
 	flag.StringVar(&config.MarkdownFile, "f", "", "Input markdown file (use -f or -d, not both)")
@@ -92,32 +96,42 @@ func Parse() Config {
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Markdown to Audio Generator\n")
-		fmt.Fprintf(os.Stderr, "Convert markdown H2 sections to audio files using TTS providers.\n\n")
+		log.Faint("Convert markdown H2 sections to audio files using TTS providers.")
+		fmt.Fprintf(os.Stderr, "\n")
 		fmt.Fprintf(os.Stderr, "Usage:\n")
-		fmt.Fprintf(os.Stderr, "  %s [options]\n\n", os.Args[0])
+		log.Faint(fmt.Sprintf("  %s [options]", os.Args[0]))
+		fmt.Fprintf(os.Stderr, "\n")
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		flag.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nExamples (macOS say provider):\n")
-		fmt.Fprintf(os.Stderr, "  # Process a single file with say (default)\n")
-		fmt.Fprintf(os.Stderr, "  %s -f script.md -p british-female\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "  # Process directory with custom voice and rate\n")
-		fmt.Fprintf(os.Stderr, "  %s -d ./docs -v Kate -r 170\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "  # Generate m4a files\n")
-		fmt.Fprintf(os.Stderr, "  %s -d ./docs -p british-female -format m4a\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "  # List available say voices\n")
-		fmt.Fprintf(os.Stderr, "  %s -list-voices\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "\n")
+		fmt.Fprintf(os.Stderr, "Examples (macOS say provider):\n")
+		log.Faint("  # Process a single file with say (default)")
+		log.Faint(fmt.Sprintf("  %s -f script.md -p british-female", os.Args[0]))
+		fmt.Fprintf(os.Stderr, "\n")
+		log.Faint("  # Process directory with custom voice and rate")
+		log.Faint(fmt.Sprintf("  %s -d ./docs -v Kate -r 170", os.Args[0]))
+		fmt.Fprintf(os.Stderr, "\n")
+		log.Faint("  # Generate m4a files")
+		log.Faint(fmt.Sprintf("  %s -d ./docs -p british-female -format m4a", os.Args[0]))
+		fmt.Fprintf(os.Stderr, "\n")
+		log.Faint("  # List available say voices")
+		log.Faint(fmt.Sprintf("  %s -list-voices", os.Args[0]))
+		fmt.Fprintf(os.Stderr, "\n")
 		fmt.Fprintf(os.Stderr, "Examples (ElevenLabs provider):\n")
-		fmt.Fprintf(os.Stderr, "  # Use ElevenLabs with environment variable\n")
-		fmt.Fprintf(os.Stderr, "  export ELEVENLABS_API_KEY='your-key'\n")
-		fmt.Fprintf(os.Stderr, "  %s -provider elevenlabs -elevenlabs-voice-id 21m00Tcm4TlvDq8ikWAM -f script.md\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "  # Use ElevenLabs with .env file\n")
-		fmt.Fprintf(os.Stderr, "  echo 'ELEVENLABS_API_KEY=your-key' > .env\n")
-		fmt.Fprintf(os.Stderr, "  %s -provider elevenlabs -elevenlabs-voice-id 21m00Tcm4TlvDq8ikWAM -d ./docs\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "  # List ElevenLabs voices\n")
-		fmt.Fprintf(os.Stderr, "  %s -provider elevenlabs -list-voices\n\n", os.Args[0])
+		log.Faint("  # Use ElevenLabs with environment variable")
+		log.Faint("  export ELEVENLABS_API_KEY='your-key'")
+		log.Faint(fmt.Sprintf("  %s -provider elevenlabs -elevenlabs-voice-id 21m00Tcm4TlvDq8ikWAM -f script.md", os.Args[0]))
+		fmt.Fprintf(os.Stderr, "\n")
+		log.Faint("  # Use ElevenLabs with .env file")
+		log.Faint("  echo 'ELEVENLABS_API_KEY=your-key' > .env")
+		log.Faint(fmt.Sprintf("  %s -provider elevenlabs -elevenlabs-voice-id 21m00Tcm4TlvDq8ikWAM -d ./docs", os.Args[0]))
+		fmt.Fprintf(os.Stderr, "\n")
+		log.Faint("  # List ElevenLabs voices")
+		log.Faint(fmt.Sprintf("  %s -provider elevenlabs -list-voices", os.Args[0]))
+		fmt.Fprintf(os.Stderr, "\n")
 		fmt.Fprintf(os.Stderr, "Say Voice Presets:\n")
-		fmt.Fprintf(os.Stderr, "  british-female, british-male, us-female, us-male,\n")
-		fmt.Fprintf(os.Stderr, "  australian-female, indian-female\n")
+		log.Faint("  british-female, british-male, us-female, us-male,")
+		log.Faint("  australian-female, indian-female")
 	}
 
 	flag.Parse()

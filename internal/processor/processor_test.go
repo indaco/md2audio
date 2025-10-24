@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/indaco/md2audio/internal/config"
+	"github.com/indaco/md2audio/internal/logger"
 )
 
 func TestProcessFile(t *testing.T) {
@@ -39,7 +40,8 @@ More content here with timing.
 		Prefix:   "test",
 	}
 
-	err := ProcessFile(mdFile, outputDir, cfg)
+	log := logger.NewDefaultLogger()
+	err := ProcessFile(mdFile, outputDir, cfg, log)
 	if err != nil {
 		t.Errorf("ProcessFile() error = %v", err)
 	}
@@ -81,7 +83,8 @@ func TestProcessFileInvalidMarkdown(t *testing.T) {
 	}
 
 	// Should not error, but should return 0 sections processed
-	err := ProcessFile(mdFile, outputDir, cfg)
+	log := logger.NewDefaultLogger()
+	err := ProcessFile(mdFile, outputDir, cfg, log)
 	if err != nil {
 		t.Errorf("ProcessFile() should not error on file with no sections, got: %v", err)
 	}
@@ -100,7 +103,8 @@ func TestProcessFileNonExistent(t *testing.T) {
 		Prefix:   "test",
 	}
 
-	err := ProcessFile(mdFile, outputDir, cfg)
+	log := logger.NewDefaultLogger()
+	err := ProcessFile(mdFile, outputDir, cfg, log)
 	if err == nil {
 		t.Error("ProcessFile() should error on nonexistent file")
 	}
@@ -145,7 +149,8 @@ Content for file 3.`,
 		OutputDir: outputDir,
 	}
 
-	err := ProcessDirectory(cfg)
+	log := logger.NewDefaultLogger()
+	err := ProcessDirectory(cfg, log)
 	if err != nil {
 		t.Errorf("ProcessDirectory() error = %v", err)
 	}
@@ -181,7 +186,8 @@ func TestProcessDirectoryEmpty(t *testing.T) {
 		Prefix:    "test",
 	}
 
-	err := ProcessDirectory(cfg)
+	log := logger.NewDefaultLogger()
+	err := ProcessDirectory(cfg, log)
 	if err == nil {
 		t.Error("ProcessDirectory() should error on empty directory")
 	}
@@ -205,7 +211,8 @@ func TestProcessDirectoryNonExistent(t *testing.T) {
 		Prefix:    "test",
 	}
 
-	err := ProcessDirectory(cfg)
+	log := logger.NewDefaultLogger()
+	err := ProcessDirectory(cfg, log)
 	if err == nil {
 		t.Error("ProcessDirectory() should error on nonexistent directory")
 	}
@@ -244,7 +251,8 @@ func TestProcessFileWithDifferentFormats(t *testing.T) {
 				Prefix:   "test",
 			}
 
-			err := ProcessFile(mdFile, outputDir, cfg)
+			log := logger.NewDefaultLogger()
+			err := ProcessFile(mdFile, outputDir, cfg, log)
 			if err != nil {
 				t.Errorf("ProcessFile() with %s format error = %v", tt.format, err)
 			}

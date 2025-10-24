@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/indaco/md2audio/internal/config"
+	"github.com/indaco/md2audio/internal/logger"
 )
 
 func TestRunValidation(t *testing.T) {
@@ -43,7 +44,8 @@ func TestRunValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := run(tt.cfg)
+			log := logger.NewDefaultLogger()
+			err := run(tt.cfg, log)
 
 			if tt.expectError {
 				if err == nil {
@@ -70,7 +72,8 @@ func TestRunListVoices(t *testing.T) {
 		ListVoices: true,
 	}
 
-	err := run(cfg)
+	log := logger.NewDefaultLogger()
+	err := run(cfg, log)
 	if err != nil {
 		t.Errorf("run() with ListVoices should not error, got: %v", err)
 	}
@@ -104,7 +107,8 @@ This is test content for audio generation.
 		Prefix:       "test",
 	}
 
-	err := run(cfg)
+	log := logger.NewDefaultLogger()
+	err := run(cfg, log)
 	if err != nil {
 		t.Errorf("run() error = %v", err)
 	}
@@ -143,7 +147,8 @@ Content for test.
 		Prefix:    "test",
 	}
 
-	err := run(cfg)
+	log := logger.NewDefaultLogger()
+	err := run(cfg, log)
 	if err != nil {
 		t.Errorf("run() error = %v", err)
 	}
@@ -168,7 +173,8 @@ func TestRunNonExistentFile(t *testing.T) {
 		Prefix:       "test",
 	}
 
-	err := run(cfg)
+	log := logger.NewDefaultLogger()
+	err := run(cfg, log)
 	if err == nil {
 		t.Error("run() should error on nonexistent file")
 	}
@@ -187,7 +193,8 @@ func TestRunEmptyDirectory(t *testing.T) {
 		Prefix:    "test",
 	}
 
-	err := run(cfg)
+	log := logger.NewDefaultLogger()
+	err := run(cfg, log)
 	if err == nil {
 		t.Error("run() should error on empty directory")
 	}

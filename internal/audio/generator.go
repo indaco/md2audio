@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/indaco/md2audio/internal/logger"
 	"github.com/indaco/md2audio/internal/parser"
 	"github.com/indaco/md2audio/internal/text"
 	"github.com/indaco/md2audio/internal/tts"
@@ -26,11 +27,15 @@ type GeneratorConfig struct {
 // Generator handles audio file generation
 type Generator struct {
 	config GeneratorConfig
+	log    logger.LoggerInterface
 }
 
 // NewGenerator creates a new audio generator
-func NewGenerator(config GeneratorConfig) *Generator {
-	return &Generator{config: config}
+func NewGenerator(config GeneratorConfig, log logger.LoggerInterface) *Generator {
+	return &Generator{
+		config: config,
+		log:    log,
+	}
 }
 
 // ListAvailableVoices lists all available macOS voices
@@ -74,9 +79,9 @@ func (g *Generator) Generate(section parser.Section, index int) error {
 	var targetDuration *float64
 	if section.HasTiming {
 		// Calculate required rate to fit the duration (for say provider)
-		estimatedRate := estimateSpeakingRate(section.Content, section.Duration)
+		estimatedRate := estimateSpeakingRate(section.Content, section.Duration, g.log)
 		speakingRate = estimatedRate
-		fmt.Printf("Target duration: %.1fs, Calculated rate: %d wpm\n", section.Duration, speakingRate)
+		g.log.Hint(fmt.Sprintf("Target duration: %.1fs, Calculated rate: %d wpm", section.Duration, speakingRate))
 
 		// Also pass target duration for providers that support it (e.g., ElevenLabs)
 		targetDuration = &section.Duration
@@ -106,7 +111,9 @@ func (g *Generator) Generate(section parser.Section, index int) error {
 			actualDuration := getAudioDuration(finalPath)
 			if actualDuration > 0 {
 				diff := actualDuration - section.Duration
-				fmt.Printf("  (target: %.1fs, diff: %+.2fs)\n", section.Duration, diff)
+				g.log.WithIndent(true)
+				g.log.Hint(fmt.Sprintf("target: %.1fs, diff: %+.2fs", section.Duration, diff))
+				g.log.WithIndent(false)
 			}
 		}
 	}
@@ -115,7 +122,7 @@ func (g *Generator) Generate(section parser.Section, index int) error {
 }
 
 // estimateSpeakingRate calculates the words per minute needed to fit target duration
-func estimateSpeakingRate(textContent string, targetDuration float64) int {
+func estimateSpeakingRate(textContent string, targetDuration float64, log logger.LoggerInterface) int {
 	// Count words
 	words := strings.Fields(textContent)
 	wordCount := len(words)
@@ -139,7 +146,7 @@ func estimateSpeakingRate(textContent string, targetDuration float64) int {
 		adjustedWPM = 90
 	} else if adjustedWPM > 360 {
 		adjustedWPM = 360
-		fmt.Printf("Warning: Required rate (%.0f wpm) exceeds maximum, capping at 360 wpm\n", requiredWPM)
+		log.Warning(fmt.Sprintf("Required rate (%.0f wpm) exceeds maximum, capping at 360 wpm", requiredWPM))
 	}
 
 	return int(adjustedWPM)
