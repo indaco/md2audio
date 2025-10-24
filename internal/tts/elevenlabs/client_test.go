@@ -42,10 +42,18 @@ func TestNewClient(t *testing.T) {
 			errorMsg:    "API key not found",
 		},
 		{
-			name: "with custom base URL",
+			name: "with custom text-to-speech base URL",
 			config: Config{
-				APIKey:  "test-api-key",
-				BaseURL: "https://custom.api.com",
+				APIKey:              "test-api-key",
+				TextToSpeechBaseURL: "https://custom.api.com",
+			},
+			expectError: false,
+		},
+		{
+			name: "with custom voices base URL",
+			config: Config{
+				APIKey:        "test-api-key",
+				VoicesBaseURL: "https://custom-voices.api.com",
 			},
 			expectError: false,
 		},
@@ -91,13 +99,22 @@ func TestNewClient(t *testing.T) {
 				t.Errorf("API key = %q, want %q", client.apiKey, expectedKey)
 			}
 
-			// Verify base URL
-			expectedURL := tt.config.BaseURL
-			if expectedURL == "" {
-				expectedURL = DefaultBaseURL
+			// Verify text-to-speech base URL
+			expectedTTSURL := tt.config.TextToSpeechBaseURL
+			if expectedTTSURL == "" {
+				expectedTTSURL = TextToSpeechBaseURL
 			}
-			if client.baseURL != expectedURL {
-				t.Errorf("Base URL = %q, want %q", client.baseURL, expectedURL)
+			if client.textToSpeechBaseURL != expectedTTSURL {
+				t.Errorf("TextToSpeechBaseURL = %q, want %q", client.textToSpeechBaseURL, expectedTTSURL)
+			}
+
+			// Verify voices base URL
+			expectedVoicesURL := tt.config.VoicesBaseURL
+			if expectedVoicesURL == "" {
+				expectedVoicesURL = VoicesBaseURL
+			}
+			if client.voicesBaseURL != expectedVoicesURL {
+				t.Errorf("VoicesBaseURL = %q, want %q", client.voicesBaseURL, expectedVoicesURL)
 			}
 		})
 	}
@@ -199,9 +216,10 @@ func TestClient_Generate(t *testing.T) {
 
 			// Create client with mock server
 			client := &Client{
-				apiKey:     "test-api-key",
-				baseURL:    server.URL,
-				httpClient: server.Client(),
+				apiKey:              "test-api-key",
+				textToSpeechBaseURL: server.URL,
+				voicesBaseURL:       server.URL,
+				httpClient:          server.Client(),
 			}
 
 			// Create temp directory for output
@@ -321,9 +339,10 @@ func TestClient_ListVoices(t *testing.T) {
 
 			// Create client with mock server
 			client := &Client{
-				apiKey:     "test-api-key",
-				baseURL:    server.URL,
-				httpClient: server.Client(),
+				apiKey:              "test-api-key",
+				textToSpeechBaseURL: server.URL,
+				voicesBaseURL:       server.URL,
+				httpClient:          server.Client(),
 			}
 
 			// Execute ListVoices
@@ -373,9 +392,10 @@ func TestClient_GenerateOutputPathExtension(t *testing.T) {
 	defer server.Close()
 
 	client := &Client{
-		apiKey:     "test-api-key",
-		baseURL:    server.URL,
-		httpClient: server.Client(),
+		apiKey:              "test-api-key",
+		textToSpeechBaseURL: server.URL,
+		voicesBaseURL:       server.URL,
+		httpClient:          server.Client(),
 	}
 
 	tmpDir := t.TempDir()

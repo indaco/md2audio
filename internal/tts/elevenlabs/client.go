@@ -20,8 +20,11 @@ import (
 )
 
 const (
-	// DefaultBaseURL is the default ElevenLabs API endpoint
-	DefaultBaseURL = "https://api.elevenlabs.io/v1"
+	// TextToSpeechBaseURL is the default Text to Speech ElevenLabs API endpoint
+	TextToSpeechBaseURL = "https://api.elevenlabs.io/v1"
+
+	// VoicesBaseURL is the default Voices ElevenLabs API endpoint
+	VoicesBaseURL = "https://api.elevenlabs.io/v2"
 
 	// DefaultModel is the default TTS model
 	DefaultModel = "eleven_multilingual_v2"
@@ -32,10 +35,11 @@ const (
 
 // Client implements the TTS Provider interface for ElevenLabs API.
 type Client struct {
-	apiKey     string
-	baseURL    string
-	httpClient *http.Client
-	log        logger.LoggerInterface // Optional logger for debug output
+	apiKey              string
+	textToSpeechBaseURL string // Base URL for text-to-speech operations (v1)
+	voicesBaseURL       string // Base URL for voices operations (v2)
+	httpClient          *http.Client
+	log                 logger.LoggerInterface // Optional logger for debug output
 
 	// Default voice settings
 	stability       float64
@@ -47,9 +51,10 @@ type Client struct {
 
 // Config holds configuration for the ElevenLabs client.
 type Config struct {
-	APIKey     string
-	BaseURL    string
-	HTTPClient *http.Client
+	APIKey              string
+	TextToSpeechBaseURL string // Base URL for text-to-speech operations (defaults to v1)
+	VoicesBaseURL       string // Base URL for voices operations (defaults to v2)
+	HTTPClient          *http.Client
 
 	// Voice Settings (optional, with defaults)
 	Stability       float64 // Voice consistency (0.0-1.0, default: 0.5)
@@ -77,9 +82,16 @@ func NewClient(cfg Config) (*Client, error) {
 		return nil, fmt.Errorf("ElevenLabs API key not found: set %s environment variable or provide in Config", EnvVarAPIKey)
 	}
 
-	baseURL := cfg.BaseURL
-	if baseURL == "" {
-		baseURL = DefaultBaseURL
+	// Set text-to-speech base URL
+	textToSpeechBaseURL := cfg.TextToSpeechBaseURL
+	if textToSpeechBaseURL == "" {
+		textToSpeechBaseURL = TextToSpeechBaseURL
+	}
+
+	// Set voices base URL
+	voicesBaseURL := cfg.VoicesBaseURL
+	if voicesBaseURL == "" {
+		voicesBaseURL = VoicesBaseURL
 	}
 
 	httpClient := cfg.HTTPClient
@@ -113,14 +125,15 @@ func NewClient(cfg Config) (*Client, error) {
 	}
 
 	return &Client{
-		apiKey:          apiKey,
-		baseURL:         baseURL,
-		httpClient:      httpClient,
-		stability:       stability,
-		similarityBoost: similarityBoost,
-		style:           style,
-		useSpeakerBoost: useSpeakerBoost,
-		speed:           speed,
+		apiKey:              apiKey,
+		textToSpeechBaseURL: textToSpeechBaseURL,
+		voicesBaseURL:       voicesBaseURL,
+		httpClient:          httpClient,
+		stability:           stability,
+		similarityBoost:     similarityBoost,
+		style:               style,
+		useSpeakerBoost:     useSpeakerBoost,
+		speed:               speed,
 	}, nil
 }
 
@@ -241,7 +254,7 @@ func (c *Client) Generate(ctx context.Context, req tts.GenerateRequest) (string,
 	}
 
 	// Create HTTP request
-	url := fmt.Sprintf("%s/text-to-speech/%s", c.baseURL, req.Voice)
+	url := fmt.Sprintf("%s/text-to-speech/%s", c.textToSpeechBaseURL, req.Voice)
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
@@ -300,7 +313,7 @@ func (c *Client) Generate(ctx context.Context, req tts.GenerateRequest) (string,
 
 // ListVoices retrieves available voices from ElevenLabs API.
 func (c *Client) ListVoices(ctx context.Context) ([]tts.Voice, error) {
-	url := fmt.Sprintf("%s/voices", c.baseURL)
+	url := fmt.Sprintf("%s/voices", c.voicesBaseURL)
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
