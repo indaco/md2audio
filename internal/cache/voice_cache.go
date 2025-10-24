@@ -23,6 +23,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
+	"github.com/indaco/md2audio/internal/logger"
 	"github.com/indaco/md2audio/internal/tts"
 )
 
@@ -42,6 +43,7 @@ const (
 type VoiceCache struct {
 	db            *sql.DB
 	cacheDuration time.Duration
+	log           logger.LoggerInterface // Optional logger for debug output
 }
 
 // NewVoiceCache creates a new voice cache with default settings.
@@ -66,6 +68,26 @@ func NewVoiceCacheWithPath(dbPath string, cacheDuration time.Duration) (*VoiceCa
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
+	}
+
+	// Enable WAL mode for better concurrent access
+	// WAL = Write-Ahead Logging (readers don't block writers)
+	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("failed to enable WAL mode: %w", err)
+	}
+
+	// Optimize for concurrent reads/writes
+	// NORMAL is safe for WAL mode and provides better performance
+	if _, err := db.Exec("PRAGMA synchronous=NORMAL"); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("failed to set synchronous mode: %w", err)
+	}
+
+	// Increase cache size for better performance (10MB)
+	if _, err := db.Exec("PRAGMA cache_size=10000"); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("failed to set cache size: %w", err)
 	}
 
 	// Create table if not exists
@@ -103,6 +125,11 @@ func (c *VoiceCache) Close() error {
 	return nil
 }
 
+// SetLogger sets the logger for debug output.
+func (c *VoiceCache) SetLogger(log logger.LoggerInterface) {
+	c.log = log
+}
+
 // Get retrieves cached voices for a provider.
 // Returns nil if cache is expired or doesn't exist.
 func (c *VoiceCache) Get(ctx context.Context, provider string) ([]tts.Voice, error) {
@@ -136,14 +163,24 @@ func (c *VoiceCache) Get(ctx context.Context, provider string) ([]tts.Voice, err
 
 	// Return nil if no voices found (cache miss)
 	if len(voices) == 0 {
+		if c.log != nil {
+			c.log.Debug(fmt.Sprintf("Cache miss for provider: %s", provider))
+		}
 		return nil, nil
 	}
 
+	if c.log != nil {
+		c.log.Debug(fmt.Sprintf("Cache hit for provider: %s (%d voices)", provider, len(voices)))
+	}
 	return voices, nil
 }
 
 // Set stores voices for a provider in the cache.
 func (c *VoiceCache) Set(ctx context.Context, provider string, voices []tts.Voice) error {
+	if c.log != nil {
+		c.log.Debug(fmt.Sprintf("Caching %d voices for provider: %s", len(voices), provider))
+	}
+
 	tx, err := c.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)

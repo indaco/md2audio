@@ -54,6 +54,8 @@ type Config struct {
 	RefreshCache bool   // Force refresh voice cache when listing voices
 	ExportVoices string // Export cached voices to JSON file (e.g., "voices.json")
 	Version      bool   // Print version and exit
+	Debug        bool   // Enable debug logging
+	DryRun       bool   // Dry-run mode: show what would be generated without creating files
 
 	// TTS Provider Configuration
 	Provider          string // TTS provider: "say" (macOS) or "elevenlabs" (default: "say")
@@ -107,6 +109,8 @@ func Parse() Config {
 	flag.BoolVar(&config.RefreshCache, "refresh-cache", false, "Force refresh of voice cache when listing voices")
 	flag.StringVar(&config.ExportVoices, "export-voices", "", "Export cached voices to JSON file (e.g., voices.json)")
 	flag.BoolVar(&config.Version, "version", false, "Print version and exit")
+	flag.BoolVar(&config.Debug, "debug", false, "Enable debug logging")
+	flag.BoolVar(&config.DryRun, "dry-run", false, "Show what would be generated without creating files")
 
 	flag.Usage = func() {
 		log.Default("Markdown to Audio Generator")

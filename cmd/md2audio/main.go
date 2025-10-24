@@ -19,6 +19,7 @@ func run(cfg config.Config, log logger.LoggerInterface) error {
 	if err != nil {
 		return fmt.Errorf("failed to initialize voice cache: %w", err)
 	}
+	voiceCache.SetLogger(log) // Enable debug logging for cache operations
 	defer func() {
 		if closeErr := voiceCache.Close(); closeErr != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to close voice cache: %v\n", closeErr)
@@ -49,6 +50,9 @@ func main() {
 	log := logger.NewDefaultLogger()
 
 	cfg := config.Parse()
+
+	// Enable debug logging if requested
+	log.SetDebug(cfg.Debug)
 
 	// Handle version flag
 	if cfg.Version {

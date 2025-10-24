@@ -11,7 +11,10 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/cenkalti/backoff/v5"
+
 	"github.com/indaco/md2audio/internal/env"
+	"github.com/indaco/md2audio/internal/logger"
 	"github.com/indaco/md2audio/internal/tts"
 	"github.com/indaco/md2audio/internal/utils"
 )
@@ -32,6 +35,7 @@ type Client struct {
 	apiKey     string
 	baseURL    string
 	httpClient *http.Client
+	log        logger.LoggerInterface // Optional logger for debug output
 
 	// Default voice settings
 	stability       float64
@@ -125,6 +129,94 @@ func (c *Client) Name() string {
 	return "elevenlabs"
 }
 
+// SetLogger sets the logger for debug output.
+func (c *Client) SetLogger(log logger.LoggerInterface) {
+	c.log = log
+}
+
+// retryableHTTPRequest executes an HTTP request with exponential backoff retry logic.
+// Retries on network errors and 429/500/502/503 status codes.
+func (c *Client) retryableHTTPRequest(ctx context.Context, req *http.Request) (*http.Response, error) {
+	var resp *http.Response
+	var lastErr error
+
+	operation := func() error {
+		// Clone the request for retry (in case body needs to be re-read)
+		reqClone := req.Clone(ctx)
+
+		var err error
+		resp, err = c.httpClient.Do(reqClone)
+		if err != nil {
+			// Network error - retry
+			lastErr = err
+			return err
+		}
+
+		// Check if we should retry based on status code
+		if shouldRetry(resp.StatusCode) {
+			body, _ := io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+			lastErr = fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+			return lastErr
+		}
+
+		// Success or non-retryable error
+		return nil
+	}
+
+	// Configure exponential backoff: 3 retries
+	expBackoff := backoff.NewExponentialBackOff()
+	expBackoff.InitialInterval = 1 * time.Second
+	expBackoff.MaxInterval = 10 * time.Second
+	expBackoff.Reset()
+
+	// Wrap with max retries and context awareness
+	retryCount := 0
+	maxRetries := 3
+
+	for retryCount < maxRetries {
+		err := operation()
+		if err == nil {
+			return resp, nil
+		}
+
+		retryCount++
+		if retryCount >= maxRetries {
+			return nil, lastErr
+		}
+
+		// Check context cancellation
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		// Wait with exponential backoff
+		wait := expBackoff.NextBackOff()
+		if wait == backoff.Stop {
+			return nil, lastErr
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(wait):
+			// Continue to next retry
+		}
+	}
+
+	return nil, lastErr
+}
+
+// shouldRetry returns true if the HTTP status code indicates a retryable error.
+func shouldRetry(statusCode int) bool {
+	return statusCode == 429 || // Too Many Requests
+		statusCode == 500 || // Internal Server Error
+		statusCode == 502 || // Bad Gateway
+		statusCode == 503 // Service Unavailable
+}
+
 // Generate creates audio from text using the ElevenLabs API.
 func (c *Client) Generate(ctx context.Context, req tts.GenerateRequest) (string, error) {
 	// Determine model
@@ -160,14 +252,19 @@ func (c *Client) Generate(ctx context.Context, req tts.GenerateRequest) (string,
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "audio/mpeg")
 
-	// Execute request
-	resp, err := c.httpClient.Do(httpReq)
+	// Log API request
+	if c.log != nil {
+		c.log.Debug(fmt.Sprintf("ElevenLabs API: POST /text-to-speech/%s (model: %s)", req.Voice, modelID))
+	}
+
+	// Execute request with retry logic
+	resp, err := c.retryableHTTPRequest(ctx, httpReq)
 	if err != nil {
 		return "", fmt.Errorf("failed to execute request: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// Check response status
+	// Check response status (non-retryable errors)
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return "", fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
@@ -212,12 +309,19 @@ func (c *Client) ListVoices(ctx context.Context) ([]tts.Voice, error) {
 
 	httpReq.Header.Set("xi-api-key", c.apiKey)
 
-	resp, err := c.httpClient.Do(httpReq)
+	// Log API request
+	if c.log != nil {
+		c.log.Debug("ElevenLabs API: GET /voices")
+	}
+
+	// Execute request with retry logic
+	resp, err := c.retryableHTTPRequest(ctx, httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
+	// Check response status (non-retryable errors)
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))

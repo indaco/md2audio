@@ -30,6 +30,11 @@ func HandleVoiceCommands(cfg config.Config, voiceCache *cache.VoiceCache, log lo
 		return err
 	}
 
+	// Set logger on provider if it supports it (ElevenLabs client)
+	if elevenlabsClient, ok := provider.(*elevenlabs.Client); ok {
+		elevenlabsClient.SetLogger(log)
+	}
+
 	cachedProvider := cache.NewCachedProvider(provider, voiceCache)
 	ctx := context.Background()
 

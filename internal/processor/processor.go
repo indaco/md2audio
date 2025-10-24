@@ -14,12 +14,16 @@ package processor
 import (
 	"fmt"
 	"os"
+	"strings"
+
+	"github.com/schollz/progressbar/v3"
 
 	"github.com/indaco/md2audio/internal/audio"
 	"github.com/indaco/md2audio/internal/cli"
 	"github.com/indaco/md2audio/internal/config"
 	"github.com/indaco/md2audio/internal/logger"
 	"github.com/indaco/md2audio/internal/parser"
+	"github.com/indaco/md2audio/internal/tts/elevenlabs"
 )
 
 // ProcessDirectory processes all markdown files in a directory recursively
@@ -42,6 +46,21 @@ func ProcessDirectory(cfg config.Config, log logger.LoggerInterface) error {
 	totalSuccess := 0
 	totalSections := 0
 
+	// Create progress bar for directory processing
+	bar := progressbar.NewOptions(len(mdFiles),
+		progressbar.OptionEnableColorCodes(true),
+		progressbar.OptionShowCount(),
+		progressbar.OptionSetWidth(30),
+		progressbar.OptionSetDescription("[cyan]Processing files...[reset]"),
+		progressbar.OptionSetTheme(progressbar.Theme{
+			Saucer:        "[green]=[reset]",
+			SaucerHead:    "[green]>[reset]",
+			SaucerPadding: " ",
+			BarStart:      "[",
+			BarEnd:        "]",
+		}),
+	)
+
 	// Process each markdown file
 	for i, mdFile := range mdFiles {
 		log.Blank()
@@ -54,12 +73,20 @@ func ProcessDirectory(cfg config.Config, log logger.LoggerInterface) error {
 		successCount, sectionCount, err := processSingleFile(mdFile.AbsPath, outputDir, cfg, log)
 		if err != nil {
 			log.Warning(fmt.Sprintf("Failed to process %s: %v", mdFile.RelPath, err))
+			_ = bar.Add(1)
 			continue
 		}
 
 		totalSuccess += successCount
 		totalSections += sectionCount
+
+		// Update progress bar
+		_ = bar.Add(1)
 	}
+
+	// Finish progress bar
+	_ = bar.Finish()
+	log.Blank()
 
 	// Final summary
 	log.Blank()
@@ -78,6 +105,8 @@ func ProcessFile(markdownFile, outputDir string, cfg config.Config, log logger.L
 
 // processSingleFile processes one markdown file and returns success count and section count
 func processSingleFile(markdownFile, outputDir string, cfg config.Config, log logger.LoggerInterface) (int, int, error) {
+	log.Debug(fmt.Sprintf("Processing file: %s -> %s", markdownFile, outputDir))
+
 	// Parse markdown file
 	log.Info("Parsing markdown file...")
 	sections, err := parser.ParseMarkdownFile(markdownFile)
@@ -104,6 +133,11 @@ func processSingleFile(markdownFile, outputDir string, cfg config.Config, log lo
 		return 0, 0, fmt.Errorf("error creating TTS provider: %w", err)
 	}
 
+	// Set logger on provider if it supports it (ElevenLabs client)
+	if elevenlabsClient, ok := provider.(*elevenlabs.Client); ok {
+		elevenlabsClient.SetLogger(log)
+	}
+
 	log.Info("Using TTS provider:", provider.Name())
 	log.Blank()
 
@@ -122,6 +156,11 @@ func processSingleFile(markdownFile, outputDir string, cfg config.Config, log lo
 		OutputDir: outputDir,
 		Provider:  provider,
 	}, log)
+
+	// Dry-run mode: show what would be generated
+	if cfg.DryRun {
+		return handleDryRun(sections, outputDir, cfg, log)
+	}
 
 	// Generate audio for each section
 	successCount := 0
@@ -155,4 +194,47 @@ func processSingleFile(markdownFile, outputDir string, cfg config.Config, log lo
 	log.Info("Files saved to:", outputDir)
 
 	return successCount, len(sections), nil
+}
+
+// handleDryRun shows what would be generated without creating files
+func handleDryRun(sections []parser.Section, outputDir string, cfg config.Config, log logger.LoggerInterface) (int, int, error) {
+	log.Hint("DRY-RUN MODE: No files will be created")
+	log.Blank()
+
+	for i, section := range sections {
+		log.Blank()
+		log.Info(fmt.Sprintf("Section %d/%d:", i+1, len(sections))).WithAttrs("title", section.Title)
+
+		if section.HasTiming {
+			log.WithIndent(true)
+			log.Hint(fmt.Sprintf("Target duration: %.1f seconds", section.Duration))
+			log.WithIndent(false)
+		}
+
+		preview := section.Content
+		if len(preview) > 100 {
+			preview = preview[:100] + "..."
+		}
+		log.WithIndent(true)
+		log.Hint(fmt.Sprintf("Text: %s", preview))
+		log.WithIndent(false)
+
+		// Show what would be generated
+		safeTitle := section.Title
+		// Simple sanitization for preview
+		safeTitle = strings.ReplaceAll(safeTitle, " ", "_")
+		safeTitle = strings.ToLower(safeTitle)
+		if len(safeTitle) > 50 {
+			safeTitle = safeTitle[:50]
+		}
+		outputFile := fmt.Sprintf("%s/%s_%02d_%s.%s", outputDir, cfg.Prefix, i+1, safeTitle, cfg.Format)
+
+		log.WithIndent(true)
+		log.Faint(fmt.Sprintf("Would create: %s", outputFile))
+		log.WithIndent(false)
+	}
+
+	log.Blank()
+	log.Success(fmt.Sprintf("Would generate %d audio files", len(sections)))
+	return len(sections), len(sections), nil
 }
