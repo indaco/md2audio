@@ -25,11 +25,12 @@
   </a>
 </p>
 
-Convert markdown H2 sections to individual audio files using multiple TTS (Text-to-Speech) providers including macOS `say` command and ElevenLabs API.
+Convert markdown H2 sections to individual audio files using multiple TTS (Text-to-Speech) providers including macOS `say`, Linux `espeak-ng`, and ElevenLabs API.
 
 ## Features
 
-- **Multiple TTS Providers**: macOS `say` command and ElevenLabs API
+- **Cross-Platform TTS Providers**: macOS `say`, Linux `espeak-ng`, and ElevenLabs API
+- **Automatic Platform Detection**: Uses the best provider for your OS automatically
 - **Process files or directories** recursively with structure mirroring
 - **Target duration control**: Adjust timing with annotations like `(8s)`
 - **Multiple formats**: AIFF, M4A, and MP3 output
@@ -38,12 +39,31 @@ Convert markdown H2 sections to individual audio files using multiple TTS (Text-
 
 ## Prerequisites
 
-### For macOS say Provider
+### For macOS say Provider (Default on macOS)
 
 - macOS (uses built-in `say` command)
 - Go 1.25 or later (to build the tool)
 
-### For ElevenLabs Provider
+### For Linux espeak Provider (Default on Linux)
+
+- Linux (Ubuntu, Debian, Fedora, Arch, etc.)
+- Go 1.25 or later (to build the tool)
+- `espeak-ng` or `espeak` installed:
+
+  ```bash
+  # Ubuntu/Debian
+  sudo apt install espeak-ng ffmpeg
+
+  # Fedora/RHEL
+  sudo dnf install espeak-ng ffmpeg
+
+  # Arch Linux
+  sudo pacman -S espeak-ng ffmpeg
+  ```
+
+- `ffmpeg` for audio format conversion (MP3, M4A support)
+
+### For ElevenLabs Provider (Works on all platforms)
 
 - Any OS (Windows, macOS, Linux)
 - Go 1.25 or later (to build the tool)
@@ -74,9 +94,9 @@ sudo mv md2audio /usr/local/bin/
 
 ## TTS Providers
 
-md2audio supports multiple Text-to-Speech providers. Choose the one that best fits your needs:
+md2audio supports multiple Text-to-Speech providers. The best provider for your platform is selected automatically:
 
-### macOS say (Default)
+### macOS say (Default on macOS)
 
 - **Platform**: macOS only
 - **Cost**: Free (built-in)
@@ -84,6 +104,16 @@ md2audio supports multiple Text-to-Speech providers. Choose the one that best fi
 - **Quality**: Good for local development and testing
 - **Formats**: AIFF, M4A
 - **Voices**: ~70 voices in various languages
+
+### Linux espeak-ng (Default on Linux)
+
+- **Platform**: Linux only
+- **Cost**: Free (open-source)
+- **Setup**: Install `espeak-ng` and `ffmpeg`
+- **Quality**: Good for local development and testing
+- **Formats**: WAV, MP3, M4A, AIFF (via ffmpeg)
+- **Voices**: 50+ voices in various languages
+- **Voice Mapping**: Automatically maps macOS voice names (e.g., "Kate" → en-gb)
 
 ### ElevenLabs
 
@@ -146,25 +176,29 @@ md2audio supports multiple Text-to-Speech providers. Choose the one that best fi
 
 ### Basic Examples
 
-#### Using macOS say Provider (Default)
+#### Using Default Provider (say on macOS, espeak on Linux)
 
 ```bash
 # Check version
 ./md2audio -version
 
-# List available voices for say provider
+# List available voices (automatically uses the best provider for your OS)
 ./md2audio -list-voices
 
 # Process a single markdown file with voice preset
+# Works on both macOS (say) and Linux (espeak) automatically!
 ./md2audio -f script.md -p british-female
 
 # Process entire directory recursively
 ./md2audio -d ./docs -p british-female
 
 # Use specific voice with slower rate for clarity
+# On macOS: uses "Kate" voice directly
+# On Linux: maps "Kate" to "en-gb" voice automatically
 ./md2audio -f script.md -v Kate -r 170
 
-# Generate M4A files instead of AIFF
+# Generate M4A files instead of default format
+# macOS default: AIFF, Linux default: WAV
 ./md2audio -d ./content -p british-female -format m4a
 
 # Custom output directory and prefix
@@ -178,6 +212,12 @@ md2audio supports multiple Text-to-Speech providers. Choose the one that best fi
 
 # Combine dry-run with debug for detailed preview
 ./md2audio -d ./docs -p british-female -dry-run -debug
+
+# Explicitly use espeak provider (on any Linux system)
+./md2audio -f script.md -provider espeak -v en-gb
+
+# Explicitly use say provider (on macOS)
+./md2audio -f script.md -provider say -v Kate
 ```
 
 #### Using ElevenLabs Provider
@@ -308,28 +348,32 @@ To improve performance, md2audio caches voice lists from providers. This is espe
 
 #### General Options
 
-| Flag             | Description                                         | Default            |
-| ---------------- | --------------------------------------------------- | ------------------ |
-| `-f`             | Input markdown file (use `-f` or `-d`)              | -                  |
-| `-d`             | Input directory (recursive, use `-f` or `-d`)       | -                  |
-| `-o`             | Output directory                                    | `./audio_sections` |
-| `-format`        | Output format                                       | `aiff`             |
-| `-prefix`        | Filename prefix                                     | `section`          |
-| `-list-voices`   | List all available voices (uses cache if available) | -                  |
-| `-refresh-cache` | Force refresh of voice cache                        | `false`            |
-| `-export-voices` | Export cached voices to JSON file                   | -                  |
-| `-provider`      | TTS provider (`say` or `elevenlabs`)                | `say`              |
-| `-version`       | Print version and exit                              | -                  |
-| `-debug`         | Enable debug logging                                | `false`            |
-| `-dry-run`       | Show what would be generated without creating files | `false`            |
+| Flag             | Description                                         | Default                 |
+| ---------------- | --------------------------------------------------- | ----------------------- |
+| `-f`             | Input markdown file (use `-f` or `-d`)              | -                       |
+| `-d`             | Input directory (recursive, use `-f` or `-d`)       | -                       |
+| `-o`             | Output directory                                    | `./audio_sections`      |
+| `-format`        | Output format                                       | `aiff`                  |
+| `-prefix`        | Filename prefix                                     | `section`               |
+| `-list-voices`   | List all available voices (uses cache if available) | -                       |
+| `-refresh-cache` | Force refresh of voice cache                        | `false`                 |
+| `-export-voices` | Export cached voices to JSON file                   | -                       |
+| `-provider`      | TTS provider (`say`, `espeak`, or `elevenlabs`)     | Auto-detect by platform |
+| `-version`       | Print version and exit                              | -                       |
+| `-debug`         | Enable debug logging                                | `false`                 |
+| `-dry-run`       | Show what would be generated without creating files | `false`                 |
 
-#### macOS say Provider Options
+#### say/espeak Provider Options
+
+These options work for both `say` (macOS) and `espeak` (Linux) providers:
 
 | Flag | Description                            | Default             |
 | ---- | -------------------------------------- | ------------------- |
 | `-p` | Voice preset (see Voice Presets below) | `Kate` (if not set) |
 | `-v` | Specific voice name (overrides `-p`)   | -                   |
 | `-r` | Speaking rate (lower = slower)         | `180`               |
+
+**Note:** Voice names are automatically mapped between platforms. For example, "Kate" uses the Kate voice on macOS and en-gb on Linux.
 
 #### ElevenLabs Provider Options
 
@@ -341,12 +385,26 @@ To improve performance, md2audio caches voice lists from providers. This is espe
 
 ### Voice Presets
 
-- `british-female` -> Kate
-- `british-male` -> Daniel
-- `us-female` -> Samantha
-- `us-male` -> Alex
-- `australian-female` -> Karen
-- `indian-female` -> Veena
+These presets work on both macOS and Linux (automatically mapped):
+
+| Preset              | macOS Voice | Linux Voice |
+| ------------------- | ----------- | ----------- |
+| `british-female`    | Kate        | en-gb       |
+| `british-male`      | Daniel      | en-gb       |
+| `us-female`         | Samantha    | en-us       |
+| `us-male`           | Alex        | en-us       |
+| `australian-female` | Karen       | en-au       |
+| `indian-female`     | Veena       | en-in       |
+
+**Cross-Platform Usage:**
+
+```bash
+# Same command works on both macOS and Linux!
+./md2audio -f script.md -p british-female
+
+# Or use specific voices (automatically mapped)
+./md2audio -f script.md -v Kate  # macOS: Kate, Linux: en-gb
+```
 
 ### ElevenLabs Voice Settings
 
