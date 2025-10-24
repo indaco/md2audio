@@ -24,29 +24,37 @@ const DefaultElevenLabsVoiceID = "21m00Tcm4TlvDq8ikWAM"
 
 // Config holds the application configuration
 type Config struct {
-	MarkdownFile string
-	InputDir     string
-	OutputDir    string
-	Voice        string
-	Rate         int
-	Format       string
-	Prefix       string
-	ListVoices   bool
-	RefreshCache bool   // Force refresh voice cache
-	ExportVoices string // Export voices to JSON file
+	// Input/Output Options
+	MarkdownFile string // Path to input markdown file (mutually exclusive with InputDir)
+	InputDir     string // Path to input directory for recursive processing (mutually exclusive with MarkdownFile)
+	OutputDir    string // Path to output directory for generated audio files (default: "./audio_sections")
 
-	// TTS Provider configuration
-	Provider          string // "say" or "elevenlabs"
-	ElevenLabsVoiceID string // ElevenLabs voice ID
-	ElevenLabsModel   string // ElevenLabs model ID
-	ElevenLabsAPIKey  string // Optional: API key (prefer env var)
+	// Say Provider Options (macOS only)
+	Voice string // Voice name for say provider (default: "Kate")
+	Rate  int    // Speaking rate in words per minute for say provider (default: 180)
 
-	// ElevenLabs Voice Settings (optional, with defaults)
-	ElevenLabsStability       float64 // Voice consistency (0.0-1.0, default: 0.5)
-	ElevenLabsSimilarityBoost float64 // Voice similarity (0.0-1.0, default: 0.5)
-	ElevenLabsStyle           float64 // Voice style/emotion (0.0-1.0, default: 0.0 = disabled)
+	// Common Audio Options
+	Format string // Output audio format: "aiff", "m4a", or "mp3" (default: "aiff")
+	Prefix string // Prefix for output filenames (default: "section")
+
+	// Command Options
+	ListVoices   bool   // List all available voices for the selected provider
+	RefreshCache bool   // Force refresh voice cache when listing voices
+	ExportVoices string // Export cached voices to JSON file (e.g., "voices.json")
+	Version      bool   // Print version and exit
+
+	// TTS Provider Configuration
+	Provider          string // TTS provider: "say" (macOS) or "elevenlabs" (default: "say")
+	ElevenLabsVoiceID string // ElevenLabs voice ID (required when using elevenlabs provider)
+	ElevenLabsModel   string // ElevenLabs model ID (default: "eleven_monolingual_v1")
+	ElevenLabsAPIKey  string // ElevenLabs API key (prefer ELEVENLABS_API_KEY env var)
+
+	// ElevenLabs Voice Settings (optional, loaded from environment variables with defaults)
+	ElevenLabsStability       float64 // Voice consistency (0.0-1.0, default: 0.5, higher = more consistent but less expressive)
+	ElevenLabsSimilarityBoost float64 // Voice similarity to original (0.0-1.0, default: 0.5, higher = closer to voice characteristics)
+	ElevenLabsStyle           float64 // Voice style/emotional range (0.0-1.0, default: 0.0 = disabled, higher = more expressive)
 	ElevenLabsUseSpeakerBoost bool    // Boost similarity of synthesized speech (default: true)
-	ElevenLabsSpeed           float64 // Speaking speed (0.7-1.2, default: 1.0, only for non-timed sections)
+	ElevenLabsSpeed           float64 // Speaking speed multiplier (0.7-1.2, default: 1.0, only for non-timed sections)
 }
 
 // Parse parses command-line flags and returns the configuration
@@ -80,6 +88,7 @@ func Parse() Config {
 	flag.BoolVar(&config.ListVoices, "list-voices", false, "List all available voices (uses cache if available)")
 	flag.BoolVar(&config.RefreshCache, "refresh-cache", false, "Force refresh of voice cache when listing voices")
 	flag.StringVar(&config.ExportVoices, "export-voices", "", "Export cached voices to JSON file (e.g., voices.json)")
+	flag.BoolVar(&config.Version, "version", false, "Print version and exit")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Markdown to Audio Generator\n")
@@ -112,6 +121,11 @@ func Parse() Config {
 	}
 
 	flag.Parse()
+
+	// Return early if version flag is set (skip all initialization)
+	if config.Version {
+		return config
+	}
 
 	// Determine voice to use (only for say provider)
 	if config.Provider == "say" || config.Provider == "" {

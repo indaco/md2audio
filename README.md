@@ -6,11 +6,11 @@
 </h2>
 <p align="center">
   <a href="https://github.com/indaco/md2audio/actions/workflows/ci.yml" target="_blank">
-      <img src="https://github.com/indaco/md2audio/actions/workflows/ci.yml/badge.svg" alt="CI" />
-    </a>
-    <a href="https://codecov.io/gh/indaco/md2audio">
-      <img src="https://codecov.io/gh/indaco/md2audio/branch/main/graph/badge.svg" alt="Code coverage" />
-    </a>
+    <img src="https://github.com/indaco/md2audio/actions/workflows/ci.yml/badge.svg" alt="CI" />
+  </a>
+  <a href="https://codecov.io/gh/indaco/md2audio">
+    <img src="https://codecov.io/gh/indaco/md2audio/branch/main/graph/badge.svg" alt="Code coverage" />
+  </a>
   <a href="https://goreportcard.com/report/github.com/indaco/md2audio/" target="_blank">
     <img src="https://goreportcard.com/badge/github.com/indaco/md2audio" alt="go report card" />
   </a>
@@ -115,6 +115,14 @@ md2audio supports multiple Text-to-Speech providers. Choose the one that best fi
 3. Or create a `.env` file in your project directory:
 
    ```bash
+   # Copy the example file
+   cp .env.example .env
+   # Then edit .env and add your API key
+   ```
+
+   Or create it directly:
+
+   ```bash
    echo 'ELEVENLABS_API_KEY=your-api-key' > .env
    ```
 
@@ -137,6 +145,7 @@ md2audio supports multiple Text-to-Speech providers. Choose the one that best fi
    - Style adds emotional range (0 = disabled, higher = more expressive)
 
 5. List available voices:
+
    ```bash
    ./md2audio -provider elevenlabs -list-voices
    ```
@@ -148,6 +157,9 @@ md2audio supports multiple Text-to-Speech providers. Choose the one that best fi
 #### Using macOS say Provider (Default)
 
 ```bash
+# Check version
+./md2audio -version
+
 # List available voices for say provider
 ./md2audio -list-voices
 
@@ -238,6 +250,7 @@ To improve performance, md2audio caches voice lists from providers. This is espe
 | `-refresh-cache` | Force refresh of voice cache                        | `false`            |
 | `-export-voices` | Export cached voices to JSON file                   | -                  |
 | `-provider`      | TTS provider (`say` or `elevenlabs`)                | `say`              |
+| `-version`       | Print version and exit                              | -                  |
 
 #### macOS say Provider Options
 
@@ -476,10 +489,7 @@ md2audio/
 │   ├── parser/          # Markdown parsing and file discovery
 │   ├── text/            # Text processing utilities
 │   ├── env/             # Environment variable and .env file loading
-│   ├── tts/             # TTS provider abstraction
-│   │   ├── provider.go  # Provider interface definition
-│   │   ├── say/         # macOS say provider implementation
-│   │   └── elevenlabs/  # ElevenLabs API provider implementation
+│   ├── tts/             # TTS providers interface definition& implementations
 │   ├── audio/           # Audio generation orchestration
 │   └── processor/       # File and directory processing
 ```
@@ -506,6 +516,33 @@ The project uses a **provider pattern** for TTS services:
 4. **Dependency Injection** - Providers are injected into audio generator
 
 This architecture makes it easy to add new TTS providers (e.g., Google Cloud TTS, AWS Polly) by implementing the Provider interface.
+
+### Development Tools
+
+The project uses [just](https://github.com/casey/just) as a command runner and includes several quality tools:
+
+```bash
+# Run all quality checks (modernize, fmt, vet, lint, goreportcard)
+just check
+
+# Individual checks
+just fmt            # Format code with go fmt
+just vet            # Run go vet
+just lint           # Run golangci-lint
+just goreportcard   # Check code quality (aim for A+ 100%)
+just test           # Run tests with coverage
+
+# Build and run
+just build          # Build binary
+just dev            # Quick build and test cycle
+```
+
+**Code Quality Standards:**
+
+- **Go Report Card**: Maintain A+ 100.0% grade
+- **Test Coverage**: Currently ~80% overall
+- **Cyclomatic Complexity**: Keep functions under 15 complexity
+- **All Checks Pass**: fmt, vet, lint, gocyclo must pass
 
 ## Contributing
 

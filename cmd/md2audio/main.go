@@ -12,6 +12,7 @@ import (
 	"github.com/indaco/md2audio/internal/tts"
 	"github.com/indaco/md2audio/internal/tts/elevenlabs"
 	"github.com/indaco/md2audio/internal/tts/say"
+	"github.com/indaco/md2audio/internal/version"
 )
 
 // run executes the main application logic and returns an error if something fails.
@@ -189,6 +190,13 @@ func displaySimpleVoices(voices []tts.Voice) {
 
 func main() {
 	cfg := config.Parse()
+
+	// Handle version flag
+	if cfg.Version {
+		fmt.Printf("md2audio version %s\n", version.GetVersion())
+		return
+	}
+
 	if err := run(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
