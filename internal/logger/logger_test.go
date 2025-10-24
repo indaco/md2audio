@@ -218,3 +218,131 @@ func TestLogAttrsWithIndent(t *testing.T) {
 		})
 	}
 }
+
+func TestDebugLogging(t *testing.T) {
+	tests := []struct {
+		name           string
+		debugEnabled   bool
+		message        string
+		args           []any
+		expectedOutput string
+	}{
+		{
+			name:           "Debug message when debug is enabled",
+			debugEnabled:   true,
+			message:        "Processing request",
+			args:           []any{"id:", 123},
+			expectedOutput: "🐛 Processing request id: 123\n",
+		},
+		{
+			name:           "Debug message when debug is disabled",
+			debugEnabled:   false,
+			message:        "This should not appear",
+			args:           []any{"value:", 456},
+			expectedOutput: "", // No output expected
+		},
+		{
+			name:           "Debug with no args",
+			debugEnabled:   true,
+			message:        "Simple debug message",
+			expectedOutput: "🐛 Simple debug message\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := NewDefaultLogger()
+			logger.SetDebug(tt.debugEnabled)
+
+			output, err := testhelpers.CaptureStdout(func() {
+				logger.Debug(tt.message, tt.args...)
+			})
+			if err != nil {
+				t.Fatalf("Failed to capture stdout: %v", err)
+			}
+
+			if output != tt.expectedOutput {
+				t.Errorf("Unexpected output:\nGot:\n%q\nWant:\n%q", output, tt.expectedOutput)
+			}
+		})
+	}
+}
+
+func TestSetDebug(t *testing.T) {
+	logger := NewDefaultLogger()
+
+	// Initially debug should be disabled
+	output, err := testhelpers.CaptureStdout(func() {
+		logger.Debug("Should not appear")
+	})
+	if err != nil {
+		t.Fatalf("Failed to capture stdout: %v", err)
+	}
+	if output != "" {
+		t.Errorf("Expected no output when debug is disabled, got: %q", output)
+	}
+
+	// Enable debug
+	logger.SetDebug(true)
+	output, err = testhelpers.CaptureStdout(func() {
+		logger.Debug("Should appear")
+	})
+	if err != nil {
+		t.Fatalf("Failed to capture stdout: %v", err)
+	}
+	if !strings.Contains(output, "Should appear") {
+		t.Errorf("Expected debug message to appear, got: %q", output)
+	}
+
+	// Disable debug again
+	logger.SetDebug(false)
+	output, err = testhelpers.CaptureStdout(func() {
+		logger.Debug("Should not appear again")
+	})
+	if err != nil {
+		t.Fatalf("Failed to capture stdout: %v", err)
+	}
+	if output != "" {
+		t.Errorf("Expected no output when debug is disabled, got: %q", output)
+	}
+}
+
+func TestDebugWithAttributes(t *testing.T) {
+	logger := NewDefaultLogger()
+	logger.SetDebug(true)
+
+	output, err := testhelpers.CaptureStdout(func() {
+		logger.Debug("Debug with attributes").WithAttrs("key1", "value1", "count", 42)
+	})
+	if err != nil {
+		t.Fatalf("Failed to capture stdout: %v", err)
+	}
+
+	expectedOutput := `🐛 Debug with attributes
+  - key1: value1
+  - count: 42
+`
+	if output != expectedOutput {
+		t.Errorf("Unexpected output:\nGot:\n%q\nWant:\n%q", output, expectedOutput)
+	}
+}
+
+func TestDebugWithIndentation(t *testing.T) {
+	logger := NewDefaultLogger()
+	logger.SetDebug(true)
+	logger.WithIndent(true)
+
+	output, err := testhelpers.CaptureStdout(func() {
+		logger.Debug("Indented debug message")
+	})
+	if err != nil {
+		t.Fatalf("Failed to capture stdout: %v", err)
+	}
+
+	expectedOutput := "  🐛 Indented debug message\n"
+	if output != expectedOutput {
+		t.Errorf("Unexpected output:\nGot:\n%q\nWant:\n%q", output, expectedOutput)
+	}
+
+	logger.WithIndent(false) // Reset
+}

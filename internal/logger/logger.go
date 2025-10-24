@@ -34,9 +34,11 @@ type LoggerInterface interface {
 	Error(message string, args ...any) *LogEntry
 	Hint(message string, args ...any) *LogEntry
 	Faint(message string, args ...any) *LogEntry
+	Debug(message string, args ...any) *LogEntry
 	Blank()
 	WithTimestamp(enabled bool)
 	WithIndent(enabled bool)
+	SetDebug(enabled bool)
 	Reset()
 }
 
@@ -65,6 +67,7 @@ type KeyValue struct {
 type DefaultLogger struct {
 	indentEnabled    bool
 	timestampEnabled bool
+	debugEnabled     bool
 	mu               sync.Mutex
 }
 
@@ -76,13 +79,15 @@ var levels = map[string]string{
 	"warning": "⚠",
 	"error":   "✘",
 	"hint":    "💡",
-	"faint":   "", // No icon for faint
+	"faint":   "",  // No icon for faint
+	"debug":   "🐛", // Debug icon
 }
 
 // Define styles for log levels
 var styleFuncs = map[string]func(string) string{
 	"hint":    styleWrapper(color.New(color.Faint).Sprint), // Faint text for hints
 	"faint":   styleWrapper(color.New(color.Faint).Sprint), // Faint text without icon
+	"debug":   styleWrapper(color.New(color.Faint).Sprint), // Faint text for debug
 	"default": func(s string) string { return s },          // No styling for default
 }
 
@@ -92,6 +97,7 @@ var colorFuncs = map[string]func(string) string{
 	"success": styleWrapper(color.New(color.FgGreen, color.Bold).Sprint),
 	"warning": styleWrapper(color.New(color.FgYellow, color.Bold).Sprint),
 	"error":   styleWrapper(color.New(color.FgRed, color.Bold).Sprint),
+	"debug":   styleWrapper(color.New(color.Faint).Sprint), // Faint icon for debug
 }
 
 /* ------------------------------------------------------------------------- */
@@ -118,6 +124,7 @@ func (l *DefaultLogger) Reset() {
 	defer l.mu.Unlock()
 	l.indentEnabled = false
 	l.timestampEnabled = false
+	l.debugEnabled = false
 }
 
 // Default creates a default-level log entry.
@@ -155,6 +162,23 @@ func (l *DefaultLogger) Faint(message string, args ...any) *LogEntry {
 	return l.createLogEntry("faint", message, args...)
 }
 
+// Debug creates a debug-level log entry (only shown when debug mode is enabled).
+func (l *DefaultLogger) Debug(message string, args ...any) *LogEntry {
+	l.mu.Lock()
+	enabled := l.debugEnabled
+	l.mu.Unlock()
+
+	if !enabled {
+		// Return a no-op entry that doesn't log anything
+		return &LogEntry{
+			level:   "debug",
+			message: "",
+			logger:  l,
+		}
+	}
+	return l.createLogEntry("debug", message, args...)
+}
+
 // Blank prints a blank line
 func (l *DefaultLogger) Blank() {
 	mustWriteln(color.Output)
@@ -172,6 +196,13 @@ func (l *DefaultLogger) WithTimestamp(enabled bool) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.timestampEnabled = enabled
+}
+
+// SetDebug enables or disables debug logging.
+func (l *DefaultLogger) SetDebug(enabled bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.debugEnabled = enabled
 }
 
 /* ------------------------------------------------------------------------- */
