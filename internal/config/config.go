@@ -15,6 +15,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
 	"strconv"
 
 	"github.com/indaco/md2audio/internal/env"
@@ -87,6 +88,19 @@ type Config struct {
 	ElevenLabs ElevenLabsConfig // ElevenLabs provider configuration
 }
 
+// GetDefaultProvider returns the default TTS provider based on the platform.
+func GetDefaultProvider() string {
+	switch runtime.GOOS {
+	case "darwin":
+		return "say"
+	case "linux":
+		return "espeak"
+	default:
+		// Windows and other platforms default to elevenlabs (cloud-based)
+		return "elevenlabs"
+	}
+}
+
 // Parse parses command-line flags and returns the configuration
 func Parse() Config {
 	// Load .env file if it exists (won't override existing env vars)
@@ -104,8 +118,9 @@ func Parse() Config {
 	flag.StringVar(&config.InputDir, "d", "", "Input directory to process recursively (use -f or -d, not both)")
 	flag.StringVar(&config.OutputDir, "o", "./audio_sections", "Output directory for audio files")
 
-	// TTS Provider
-	flag.StringVar(&config.Provider, "provider", "say", "TTS provider: 'say' (macOS) or 'elevenlabs'")
+	// TTS Provider - auto-detect based on platform
+	defaultProvider := GetDefaultProvider()
+	flag.StringVar(&config.Provider, "provider", defaultProvider, "TTS provider: 'say' (macOS), 'espeak' (Linux), or 'elevenlabs'")
 
 	// Say provider options
 	var preset string
@@ -248,8 +263,8 @@ func (c Config) Validate() error {
 	}
 
 	// Validate provider
-	if c.Provider != "say" && c.Provider != "elevenlabs" {
-		return fmt.Errorf("invalid provider %q: must be 'say' or 'elevenlabs'", c.Provider)
+	if c.Provider != "say" && c.Provider != "espeak" && c.Provider != "elevenlabs" {
+		return fmt.Errorf("invalid provider %q: must be 'say', 'espeak', or 'elevenlabs'", c.Provider)
 	}
 
 	// Validate provider-specific requirements

@@ -296,6 +296,14 @@ func TestConfigValidate(t *testing.T) {
 			expectError: false,
 		},
 		{
+			name: "valid espeak provider",
+			config: Config{
+				MarkdownFile: "test.md",
+				Provider:     "espeak",
+			},
+			expectError: false,
+		},
+		{
 			name: "valid elevenlabs provider with voice ID",
 			config: Config{
 				MarkdownFile: "test.md",
