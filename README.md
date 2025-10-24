@@ -32,17 +32,12 @@ Convert markdown H2 sections to individual audio files using multiple TTS (Text-
 
 ## Features
 
-- **Multiple TTS Providers**: Support for macOS `say` command and ElevenLabs API
-- Process single files or entire directories recursively
-- Automatically extracts H2 sections from markdown files
-- Generates separate audio file for each section
-- Mirror directory structure for batch processing
-- Configurable voice (British, US, Australian, etc.)
-- Adjustable speaking rate for clarity (say provider)
-- Supports multiple output formats (AIFF, M4A, MP3)
-- Clean filename generation from section titles
-- Target duration control with timing annotations
-- Environment variable and .env file support for API keys
+- **Multiple TTS Providers**: macOS `say` command and ElevenLabs API
+- **Process files or directories** recursively with structure mirroring
+- **Target duration control**: Adjust timing with annotations like `(8s)`
+- **Multiple formats**: AIFF, M4A, and MP3 output
+- **Voice caching**: Fast lookups with SQLite WAL mode
+- **Developer-friendly**: Debug mode, dry-run preview, progress indicators
 
 ## Prerequisites
 
@@ -177,6 +172,15 @@ md2audio supports multiple Text-to-Speech providers. Choose the one that best fi
 
 # Custom output directory and prefix
 ./md2audio -f script.md -o ./voiceovers -prefix demo
+
+# Preview what would be generated (dry-run mode)
+./md2audio -f script.md -p british-female -dry-run
+
+# Enable debug logging to troubleshoot issues
+./md2audio -f script.md -p british-female -debug
+
+# Combine dry-run with debug for detailed preview
+./md2audio -d ./docs -p british-female -dry-run -debug
 ```
 
 #### Using ElevenLabs Provider
@@ -207,6 +211,74 @@ md2audio supports multiple Text-to-Speech providers. Choose the one that best fi
   -elevenlabs-voice-id YOUR_VOICE_ID \
   -elevenlabs-model eleven_multilingual_v2 \
   -f script.md
+```
+
+### Debug Mode
+
+Enable debug logging to troubleshoot issues or understand what's happening under the hood:
+
+```bash
+# Enable debug logging
+./md2audio -f script.md -p british-female -debug
+```
+
+**Debug mode shows:**
+
+- Cache hits/misses for voice lookups
+- API request details (ElevenLabs)
+- File processing progress
+- Internal operation details
+
+**When to use debug mode:**
+
+- Troubleshooting API issues with ElevenLabs
+- Understanding cache behavior
+- Investigating performance problems
+- Reporting bugs with detailed logs
+
+### Dry-Run Mode
+
+Preview what would be generated without creating any audio files:
+
+```bash
+# Dry-run mode - shows what would be generated
+./md2audio -f script.md -p british-female -dry-run
+
+# Combine with debug for maximum visibility
+./md2audio -d ./docs -provider elevenlabs -elevenlabs-voice-id YOUR_ID -dry-run -debug
+```
+
+**Dry-run mode shows:**
+
+- Which sections would be processed
+- Output file paths that would be created
+- Timing information for timed sections
+- Preview of text content
+
+**When to use dry-run mode:**
+
+- Testing markdown format before generation
+- Verifying output paths and filenames
+- Checking section count and structure
+- Planning batch processing jobs
+
+**Example output:**
+
+```
+💡 DRY-RUN MODE: No files will be created
+
+ℹ Section 1/3:
+  - title: Introduction
+  💡 Target duration: 8.0 seconds
+  💡 Text: Welcome to this demonstration...
+  Would create: ./audio_sections/section_01_introduction.aiff
+
+ℹ Section 2/3:
+  - title: Main Content
+  💡 Text: Here is the main content...
+  Would create: ./audio_sections/section_02_main_content.aiff
+
+✔ Would generate 3 audio files
 ```
 
 ### Voice Caching
@@ -251,6 +323,8 @@ To improve performance, md2audio caches voice lists from providers. This is espe
 | `-export-voices` | Export cached voices to JSON file                   | -                  |
 | `-provider`      | TTS provider (`say` or `elevenlabs`)                | `say`              |
 | `-version`       | Print version and exit                              | -                  |
+| `-debug`         | Enable debug logging                                | `false`            |
+| `-dry-run`       | Show what would be generated without creating files | `false`            |
 
 #### macOS say Provider Options
 
