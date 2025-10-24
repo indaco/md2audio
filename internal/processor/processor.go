@@ -1,3 +1,14 @@
+// Package processor orchestrates file and directory processing.
+// It coordinates markdown parsing, TTS provider creation, and audio generation
+// for single files or entire directory trees.
+//
+// Key features:
+//   - Single file processing
+//   - Recursive directory processing
+//   - Directory structure mirroring
+//   - Error handling and recovery
+//   - Progress feedback
+//   - Batch processing with statistics
 package processor
 
 import (

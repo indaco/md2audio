@@ -1,3 +1,16 @@
+// Package tts provides the text-to-speech provider abstraction and implementations.
+// It defines the Provider interface that all TTS services must implement,
+// along with common types and request/response structures.
+//
+// Key features:
+//   - Provider interface for TTS abstraction
+//   - Support for multiple providers (say, elevenlabs)
+//   - Timing control and speed adjustment
+//   - Voice listing and selection
+//
+// Providers:
+//   - say: macOS built-in TTS (AIFF, M4A output)
+//   - elevenlabs: ElevenLabs API (MP3 output)
 package tts
 
 import "context"

@@ -1,3 +1,13 @@
+// Package logger provides structured, color-coded console logging.
+// It offers multiple log levels with visual feedback and attribute support.
+//
+// Key features:
+//   - Color-coded output (Info, Success, Warning, Error, Hint)
+//   - Structured logging with attributes
+//   - Optional timestamps
+//   - Message indentation support
+//   - JSON export capability
+//   - Thread-safe operations
 package logger
 
 import (

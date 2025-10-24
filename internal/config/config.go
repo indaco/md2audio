@@ -1,3 +1,14 @@
+// Package config provides configuration management for the md2audio CLI.
+// It handles command-line argument parsing, environment variable loading,
+// voice presets, and configuration validation.
+//
+// Key features:
+//   - CLI flag parsing with sensible defaults
+//   - Voice preset management (british-female, us-male, etc.)
+//   - Environment variable integration (.env file support)
+//   - Provider-specific configuration (say, elevenlabs)
+//   - Configuration validation
+//   - Secure API key masking in output
 package config
 
 import (

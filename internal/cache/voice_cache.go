@@ -1,3 +1,15 @@
+// Package cache provides SQLite-based caching for TTS provider voice lists.
+// It reduces API calls to TTS providers by caching voice information locally.
+//
+// Key features:
+//   - SQLite-based persistent storage (~/.md2audio/voice_cache.db)
+//   - 30-day cache duration (configurable)
+//   - Provider-specific voice caching
+//   - Cache refresh and expiration handling
+//   - JSON export functionality
+//
+// The cache significantly improves performance when listing voices from
+// API-based providers like ElevenLabs, and enables offline access to voice lists.
 package cache
 
 import (

@@ -1,3 +1,12 @@
+// Package env provides environment variable loading from .env files.
+// It offers a pure Go implementation without external dependencies.
+//
+// Key features:
+//   - .env file parsing
+//   - Non-override behavior (existing env vars take precedence)
+//   - Comment and empty line support
+//   - Quote handling for values
+//   - Helper functions for retrieving values with defaults
 package env
 
 import (

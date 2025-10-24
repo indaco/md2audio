@@ -1,3 +1,12 @@
+// Package cli provides command-line interface utilities.
+// It handles voice-related commands (list, export) and provider creation.
+//
+// Key features:
+//   - Voice listing with caching support
+//   - Voice export to JSON
+//   - Provider factory pattern
+//   - Cache management
+//   - Formatted voice output
 package cli
 
 import (
