@@ -1,6 +1,10 @@
 # git-cliff ~ configuration file
 # https://git-cliff.org/docs/configuration
 
+[remote.github]
+owner = "indaco"
+repo = "md2audio"
+
 [changelog]
 # A Tera template to be rendered as the changelog's header.
 # See https://keats.github.io/tera/docs/#introduction
@@ -43,6 +47,18 @@ body = """
     {% endfor -%}
     {% raw %}\n{% endraw %}\
 {% endfor %}\n
+
+{%- if github -%}
+  {%- if github.contributors | filter(attribute="is_first_time", value=true) | length != 0 -%}
+    ### ❤️ New Contributors{% raw %}\n\n{% endraw -%}
+    {%- for contributor in github.contributors | filter(attribute="is_first_time", value=true) -%}
+      * @{{ contributor.username }} made their first contribution\
+        {%- if contributor.pr_number %} in [#{{ contributor.pr_number }}]({{ self::remote_url() }}/pull/{{ contributor.pr_number }}) {%- endif -%}
+        {% raw %}\n{% endraw -%}
+    {%- endfor -%}
+    {% raw %}\n{% endraw -%}
+  {%- endif -%}
+{%- endif -%}
 """
 
 [git]
