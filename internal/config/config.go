@@ -190,10 +190,11 @@ func Parse() Config {
 		return config
 	}
 
-	// Determine voice to use (only for say provider)
-	if config.Provider == "say" || config.Provider == "" {
+	// Determine voice to use (for say and espeak providers)
+	if config.Provider == "say" || config.Provider == "espeak" || config.Provider == "" {
 		if config.Say.Voice != "" {
-			// Explicit voice specified, use it
+			// Explicit voice specified, use it as-is
+			// For espeak, it will be mapped by the provider (e.g., Kate -> en-gb)
 		} else if preset != "" {
 			if voice, ok := VoicePresets[preset]; ok {
 				config.Say.Voice = voice
@@ -207,9 +208,9 @@ func Parse() Config {
 		}
 	}
 
-	// Normalize provider name
+	// Normalize provider name to platform default if empty
 	if config.Provider == "" {
-		config.Provider = "say"
+		config.Provider = GetDefaultProvider()
 	}
 
 	// Set default ElevenLabs voice if not specified and not listing voices
