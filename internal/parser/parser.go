@@ -10,6 +10,11 @@ import (
 	"github.com/indaco/md2audio/internal/text"
 )
 
+const (
+	// MaxFileSize is the maximum allowed markdown file size (10MB)
+	MaxFileSize = 10 * 1024 * 1024 // 10MB should be more than enough for any reasonable markdown
+)
+
 // Section represents a markdown section with title and content
 type Section struct {
 	Title     string
@@ -18,8 +23,53 @@ type Section struct {
 	HasTiming bool    // Whether timing was specified
 }
 
+// validateMarkdownFile validates that a file is safe to read
+func validateMarkdownFile(filename string) error {
+	// Get file info
+	info, err := os.Stat(filename)
+	if err != nil {
+		return fmt.Errorf("failed to stat file: %w", err)
+	}
+
+	// Check if it's a regular file
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("not a regular file: %s", filename)
+	}
+
+	// Check file size
+	if info.Size() > MaxFileSize {
+		return fmt.Errorf("file too large: %d bytes (max: %d bytes)", info.Size(), MaxFileSize)
+	}
+
+	// Validate file extension
+	if filepath.Ext(filename) != ".md" {
+		return fmt.Errorf("not a markdown file: %s", filename)
+	}
+
+	// Clean the path to prevent path traversal
+	cleanPath, err := filepath.Abs(filename)
+	if err != nil {
+		return fmt.Errorf("failed to resolve absolute path: %w", err)
+	}
+
+	// Ensure the cleaned path still points to the same file
+	// This prevents symlink attacks
+	if cleanInfo, err := os.Stat(cleanPath); err != nil {
+		return fmt.Errorf("failed to validate resolved path: %w", err)
+	} else if !os.SameFile(info, cleanInfo) {
+		return fmt.Errorf("path resolution mismatch (possible symlink attack)")
+	}
+
+	return nil
+}
+
 // ParseMarkdownFile parses a markdown file and extracts H2 sections
 func ParseMarkdownFile(filename string) ([]Section, error) {
+	// Validate file before reading
+	if err := validateMarkdownFile(filename); err != nil {
+		return nil, fmt.Errorf("file validation failed: %w", err)
+	}
+
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err

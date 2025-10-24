@@ -75,16 +75,18 @@ func (p *Provider) Generate(ctx context.Context, req tts.GenerateRequest) (strin
 		return "", fmt.Errorf("say command failed: %w\nOutput: %s", err, string(output))
 	}
 
-	fmt.Printf("Generating: %s\n", outputPath)
+	// Note: Using stderr for progress messages to avoid polluting stdout
+	// TODO: Consider passing logger via context or provider interface for better integration
+	fmt.Fprintf(os.Stderr, "Generating: %s\n", outputPath)
 
 	// Measure actual duration using afinfo
 	duration, err := getAudioDuration(outputPath)
 	if err == nil {
-		fmt.Printf("✓ Created: %s\n", outputPath)
-		fmt.Printf("  Actual duration: %.2fs\n", duration)
+		fmt.Fprintf(os.Stderr, "✓ Created: %s\n", outputPath)
+		fmt.Fprintf(os.Stderr, "  Actual duration: %.2fs\n", duration)
 	} else {
-		fmt.Printf("✓ Created: %s\n", outputPath)
-		fmt.Printf("  Warning: Could not measure duration: %v\n", err)
+		fmt.Fprintf(os.Stderr, "✓ Created: %s\n", outputPath)
+		fmt.Fprintf(os.Stderr, "  Warning: Could not measure duration: %v\n", err)
 	}
 
 	// Convert to M4A if requested
@@ -96,10 +98,10 @@ func (p *Provider) Generate(ctx context.Context, req tts.GenerateRequest) (strin
 
 		// Remove the original aiff file
 		if err := os.Remove(outputPath); err != nil {
-			fmt.Printf("Warning: Could not remove temporary aiff file: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Warning: Could not remove temporary aiff file: %v\n", err)
 		}
 
-		fmt.Printf("✓ Converted to: %s\n", m4aPath)
+		fmt.Fprintf(os.Stderr, "✓ Converted to: %s\n", m4aPath)
 		return m4aPath, nil
 	}
 

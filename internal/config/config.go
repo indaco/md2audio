@@ -61,7 +61,10 @@ type Config struct {
 // Parse parses command-line flags and returns the configuration
 func Parse() Config {
 	// Load .env file if it exists (won't override existing env vars)
-	_, _ = env.Load(".env")
+	if _, err := env.Load(".env"); err != nil {
+		// Only warn if there's an actual error (not just file not found)
+		fmt.Fprintf(os.Stderr, "Warning: Failed to load .env file: %v\n", err)
+	}
 
 	// Create logger for help message
 	log := logger.NewDefaultLogger()
@@ -233,7 +236,20 @@ func (c Config) IsDirectoryMode() bool {
 	return c.InputDir != ""
 }
 
+// maskSecret masks sensitive string data for safe display in logs
+// Shows first 4 and last 4 characters, masks the middle with asterisks
+func maskSecret(secret string) string {
+	if secret == "" {
+		return "[not set]"
+	}
+	if len(secret) <= 8 {
+		return "****" // Too short to partially reveal
+	}
+	return secret[:4] + "****" + secret[len(secret)-4:]
+}
+
 // Print displays the configuration
+// NOTE: This method is safe for logging - sensitive data (API keys) are never printed
 func (c Config) Print() {
 	fmt.Println("\nConfiguration:")
 	if c.IsDirectoryMode() {
@@ -251,6 +267,11 @@ func (c Config) Print() {
 	case "elevenlabs":
 		fmt.Printf("  Voice ID: %s\n", c.ElevenLabsVoiceID)
 		fmt.Printf("  Model: %s\n", c.ElevenLabsModel)
+		// API key is intentionally not printed for security
+		// If debugging is needed, check environment variable ELEVENLABS_API_KEY
+		if c.ElevenLabsAPIKey != "" {
+			fmt.Printf("  API Key: %s\n", maskSecret(c.ElevenLabsAPIKey))
+		}
 	}
 
 	fmt.Printf("  Format: %s\n", c.Format)

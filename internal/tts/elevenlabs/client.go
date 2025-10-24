@@ -59,7 +59,10 @@ type Config struct {
 // It loads the API key from environment variable or .env file.
 func NewClient(cfg Config) (*Client, error) {
 	// Load .env file if it exists (won't override existing env vars)
-	_, _ = env.Load(".env")
+	if _, err := env.Load(".env"); err != nil {
+		// Log warning but don't fail - env vars may already be set
+		fmt.Fprintf(os.Stderr, "Warning: Failed to load .env file: %v\n", err)
+	}
 
 	// Get API key from config, env var, or error
 	apiKey := cfg.APIKey
@@ -297,11 +300,13 @@ func (c *Client) prepareVoiceSettings(req tts.GenerateRequest) *VoiceSettings {
 		// Calculate speed to match target duration
 		speed := calculateSpeed(req.Text, *req.TargetDuration)
 		settings.Speed = &speed
-		fmt.Printf("Target duration: %.1fs, Calculated speed: %.2fx\n", *req.TargetDuration, speed)
+		// Note: Using stderr for progress messages to avoid polluting stdout
+		// TODO: Consider passing logger via context or provider interface for better integration
+		fmt.Fprintf(os.Stderr, "Target duration: %.1fs, Calculated speed: %.2fx\n", *req.TargetDuration, speed)
 	} else if c.speed != 1.0 && c.speed > 0 {
 		// Use configured default speed for non-timed sections (only if explicitly set)
 		settings.Speed = &c.speed
-		fmt.Printf("Using configured speed: %.2fx\n", c.speed)
+		fmt.Fprintf(os.Stderr, "Using configured speed: %.2fx\n", c.speed)
 	}
 
 	return settings
@@ -335,10 +340,10 @@ func calculateSpeed(text string, targetDuration float64) float64 {
 
 	if speed < minSpeed {
 		speed = minSpeed
-		fmt.Printf("Warning: Required speed (%.2f) is below minimum, clamping to %.1f (audio will be longer than target)\n", naturalDuration/targetDuration, minSpeed)
+		fmt.Fprintf(os.Stderr, "Warning: Required speed (%.2f) is below minimum, clamping to %.1f (audio will be longer than target)\n", naturalDuration/targetDuration, minSpeed)
 	} else if speed > maxSpeed {
 		speed = maxSpeed
-		fmt.Printf("Warning: Required speed (%.2f) exceeds maximum, clamping to %.1f (audio will be shorter than target)\n", naturalDuration/targetDuration, maxSpeed)
+		fmt.Fprintf(os.Stderr, "Warning: Required speed (%.2f) exceeds maximum, clamping to %.1f (audio will be shorter than target)\n", naturalDuration/targetDuration, maxSpeed)
 	}
 
 	return speed
