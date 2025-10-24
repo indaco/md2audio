@@ -76,6 +76,7 @@ Temporary Items
 
 coverage.out
 coverage.txt
+cli-coverage.txt
 md2audio
 !cmd/md2audio
 

@@ -54,14 +54,7 @@ build-release version:
 
 # Run all tests and generate coverage report
 test:
-    go test -count=1 -timeout 30s ./... -covermode=atomic -coverprofile=coverage.txt
-    @just _test-view-total-coverage
-
-# Display total test coverage percentage
-_test-view-total-coverage:
-    @echo ""
-    @echo "Total Coverage:"
-    @go tool cover -func=coverage.txt | grep total | awk '{print $$NF}'
+    @bash scripts/test-coverage.sh
 
 # View the HTML coverage report in browser
 _test-view-coverage:
@@ -70,9 +63,7 @@ _test-view-coverage:
 
 # Run tests with verbose output
 test-verbose:
-    @echo "Running tests with verbose output..."
-    go test -v -count=1 -timeout 30s ./... -covermode=atomic -coverprofile=coverage.txt
-    @just _test-view-total-coverage
+    @bash scripts/test-coverage.sh -v
 
 # Run tests and open HTML coverage report
 test-coverage: test-force _test-view-coverage
