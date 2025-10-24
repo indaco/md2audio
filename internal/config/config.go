@@ -32,6 +32,8 @@ type Config struct {
 	Format       string
 	Prefix       string
 	ListVoices   bool
+	RefreshCache bool   // Force refresh voice cache
+	ExportVoices string // Export voices to JSON file
 
 	// TTS Provider configuration
 	Provider          string // "say" or "elevenlabs"
@@ -75,7 +77,9 @@ func Parse() Config {
 	// Common options
 	flag.StringVar(&config.Format, "format", "aiff", "Output audio format (aiff, m4a, mp3)")
 	flag.StringVar(&config.Prefix, "prefix", "section", "Prefix for output filenames")
-	flag.BoolVar(&config.ListVoices, "list-voices", false, "List all available voices and exit")
+	flag.BoolVar(&config.ListVoices, "list-voices", false, "List all available voices (uses cache if available)")
+	flag.BoolVar(&config.RefreshCache, "refresh-cache", false, "Force refresh of voice cache when listing voices")
+	flag.StringVar(&config.ExportVoices, "export-voices", "", "Export cached voices to JSON file (e.g., voices.json)")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Markdown to Audio Generator\n")

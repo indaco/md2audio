@@ -170,8 +170,14 @@ md2audio supports multiple Text-to-Speech providers. Choose the one that best fi
 #### Using ElevenLabs Provider
 
 ```bash
-# List available ElevenLabs voices
+# List available ElevenLabs voices (cached for faster access)
 ./md2audio -provider elevenlabs -list-voices
+
+# Refresh voice cache (when new voices are available)
+./md2audio -provider elevenlabs -list-voices -refresh-cache
+
+# Export voices to JSON for reference
+./md2audio -provider elevenlabs -export-voices elevenlabs_voices.json
 
 # Process a single file with ElevenLabs
 ./md2audio -provider elevenlabs \
@@ -191,19 +197,47 @@ md2audio supports multiple Text-to-Speech providers. Choose the one that best fi
   -f script.md
 ```
 
+### Voice Caching
+
+To improve performance, md2audio caches voice lists from providers. This is especially useful for ElevenLabs to avoid repeated API calls:
+
+```bash
+# First call - fetches from API and caches (slower)
+./md2audio -provider elevenlabs -list-voices
+
+# Subsequent calls - uses cache (instant)
+./md2audio -provider elevenlabs -list-voices
+
+# Force refresh when new voices are available
+./md2audio -provider elevenlabs -list-voices -refresh-cache
+
+# Export cached voices to JSON file for reference
+./md2audio -provider elevenlabs -export-voices elevenlabs_voices.json
+./md2audio -provider say -export-voices say_voices.json
+```
+
+**Cache Details:**
+
+- **Location**: `~/.md2audio/voice_cache.db` (SQLite database)
+- **Duration**: 30 days (voices don't change frequently)
+- **Benefits**: Instant voice listing, reduced API calls, offline access to voice list
+- **Refresh**: Use `-refresh-cache` flag when you know new voices are available
+
 ### Command Line Options
 
 #### General Options
 
-| Flag           | Description                                     | Default            |
-| -------------- | ----------------------------------------------- | ------------------ |
-| `-f`           | Input markdown file (use `-f` or `-d`)          | -                  |
-| `-d`           | Input directory (recursive, use `-f` or `-d`)   | -                  |
-| `-o`           | Output directory                                | `./audio_sections` |
-| `-format`      | Output format                                   | `aiff`             |
-| `-prefix`      | Filename prefix                                 | `section`          |
-| `-list-voices` | List all available voices for selected provider | -                  |
-| `-provider`    | TTS provider (`say` or `elevenlabs`)            | `say`              |
+| Flag             | Description                                         | Default            |
+| ---------------- | --------------------------------------------------- | ------------------ |
+| `-f`             | Input markdown file (use `-f` or `-d`)              | -                  |
+| `-d`             | Input directory (recursive, use `-f` or `-d`)       | -                  |
+| `-o`             | Output directory                                    | `./audio_sections` |
+| `-format`        | Output format                                       | `aiff`             |
+| `-prefix`        | Filename prefix                                     | `section`          |
+| `-list-voices`   | List all available voices (uses cache if available) | -                  |
+| `-refresh-cache` | Force refresh of voice cache                        | `false`            |
+| `-export-voices` | Export cached voices to JSON file                   | -                  |
+| `-provider`      | TTS provider (`say` or `elevenlabs`)                | `say`              |
 
 #### macOS say Provider Options
 
