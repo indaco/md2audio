@@ -19,6 +19,7 @@ import (
 	"github.com/indaco/md2audio/internal/logger"
 	"github.com/indaco/md2audio/internal/tts"
 	"github.com/indaco/md2audio/internal/tts/elevenlabs"
+	"github.com/indaco/md2audio/internal/tts/espeak"
 	"github.com/indaco/md2audio/internal/tts/say"
 	"github.com/indaco/md2audio/internal/utils"
 )
@@ -51,9 +52,17 @@ func HandleVoiceCommands(cfg config.Config, voiceCache *cache.VoiceCache, log lo
 
 // CreateProvider creates a TTS provider based on configuration.
 func CreateProvider(cfg config.Config) (tts.Provider, error) {
-	switch cfg.Provider {
-	case "say", "":
+	// Handle empty provider (use platform default)
+	provider := cfg.Provider
+	if provider == "" {
+		provider = config.GetDefaultProvider()
+	}
+
+	switch provider {
+	case "say":
 		return say.NewProvider()
+	case "espeak":
+		return espeak.NewProvider()
 	case "elevenlabs":
 		return elevenlabs.NewClient(elevenlabs.Config{
 			APIKey:          cfg.ElevenLabs.APIKey,
@@ -64,7 +73,7 @@ func CreateProvider(cfg config.Config) (tts.Provider, error) {
 			Speed:           cfg.ElevenLabs.VoiceSettings.Speed,
 		})
 	default:
-		return nil, fmt.Errorf("unsupported provider: %s", cfg.Provider)
+		return nil, fmt.Errorf("unsupported provider: %s", provider)
 	}
 }
 

@@ -146,6 +146,7 @@ func processSingleFile(markdownFile, outputDir string, cfg config.Config, log lo
 	if cfg.Provider == "elevenlabs" {
 		voice = cfg.ElevenLabs.VoiceID
 	}
+	// espeak uses cfg.Say.Voice (same as say provider)
 
 	// Create audio generator
 	generator := audio.NewGenerator(audio.GeneratorConfig{

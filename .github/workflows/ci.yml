@@ -56,5 +56,9 @@ jobs:
       - name: Verify dependencies
         run: go mod verify
 
+      - name: Install espeak-ng (Linux only)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y espeak-ng
+
       - name: Run tests
         run: bash scripts/test-coverage.sh

@@ -296,6 +296,14 @@ func TestConfigValidate(t *testing.T) {
 			expectError: false,
 		},
 		{
+			name: "valid espeak provider",
+			config: Config{
+				MarkdownFile: "test.md",
+				Provider:     "espeak",
+			},
+			expectError: false,
+		},
+		{
 			name: "valid elevenlabs provider with voice ID",
 			config: Config{
 				MarkdownFile: "test.md",
@@ -949,8 +957,10 @@ func TestParseWithVersion(t *testing.T) {
 	}
 
 	// Provider should have flag default value (set before early return)
-	if cfg.Provider != "say" {
-		t.Errorf("Expected Provider 'say' (flag default), got %q", cfg.Provider)
+	// This is platform-dependent: "say" on macOS, "espeak" on Linux
+	expectedProvider := GetDefaultProvider()
+	if cfg.Provider != expectedProvider {
+		t.Errorf("Expected Provider %q (platform default), got %q", expectedProvider, cfg.Provider)
 	}
 
 	// Voice should be empty since voice selection logic is skipped
