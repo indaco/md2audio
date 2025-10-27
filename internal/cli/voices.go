@@ -20,6 +20,7 @@ import (
 	"github.com/indaco/md2audio/internal/tts"
 	"github.com/indaco/md2audio/internal/tts/elevenlabs"
 	"github.com/indaco/md2audio/internal/tts/espeak"
+	"github.com/indaco/md2audio/internal/tts/google"
 	"github.com/indaco/md2audio/internal/tts/say"
 	"github.com/indaco/md2audio/internal/utils"
 )
@@ -31,13 +32,21 @@ func HandleVoiceCommands(cfg config.Config, voiceCache *cache.VoiceCache, log lo
 		return err
 	}
 
-	// Set logger on provider if it supports it (ElevenLabs client)
+	// Set logger on provider if it supports it
 	if elevenlabsClient, ok := provider.(*elevenlabs.Client); ok {
 		elevenlabsClient.SetLogger(log)
+	}
+	if googleClient, ok := provider.(*google.Client); ok {
+		googleClient.SetLogger(log)
 	}
 
 	cachedProvider := cache.NewCachedProvider(provider, voiceCache)
 	ctx := context.Background()
+
+	// Ensure Google client is closed when done
+	if googleClient, ok := provider.(*google.Client); ok {
+		defer func() { _ = googleClient.Close() }()
+	}
 
 	if cfg.Commands.ExportVoices != "" {
 		return ExportVoices(ctx, cachedProvider, provider.Name(), cfg.Commands.ExportVoices, log)
@@ -52,6 +61,8 @@ func HandleVoiceCommands(cfg config.Config, voiceCache *cache.VoiceCache, log lo
 
 // CreateProvider creates a TTS provider based on configuration.
 func CreateProvider(cfg config.Config) (tts.Provider, error) {
+	ctx := context.Background()
+
 	// Handle empty provider (use platform default)
 	provider := cfg.Provider
 	if provider == "" {
@@ -71,6 +82,14 @@ func CreateProvider(cfg config.Config) (tts.Provider, error) {
 			Style:           cfg.ElevenLabs.VoiceSettings.Style,
 			UseSpeakerBoost: cfg.ElevenLabs.VoiceSettings.UseSpeakerBoost,
 			Speed:           cfg.ElevenLabs.VoiceSettings.Speed,
+		})
+	case "google":
+		return google.NewClient(ctx, google.Config{
+			CredentialsFile: cfg.Google.CredentialsFile,
+			LanguageCode:    cfg.Google.LanguageCode,
+			SpeakingRate:    cfg.Google.SpeakingRate,
+			Pitch:           cfg.Google.Pitch,
+			VolumeGainDb:    cfg.Google.VolumeGainDb,
 		})
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", provider)
