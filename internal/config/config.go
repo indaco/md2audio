@@ -68,6 +68,16 @@ type ElevenLabsConfig struct {
 	VoiceSettings VoiceSettings // Voice generation settings (loaded from environment variables with defaults)
 }
 
+// GoogleConfig holds configuration for the Google Cloud TTS provider
+type GoogleConfig struct {
+	VoiceName       string  // Google Cloud TTS voice name (e.g., "en-US-Neural2-F")
+	LanguageCode    string  // Language code (e.g., "en-US", default: "en-US")
+	CredentialsFile string  // Path to service account JSON file (optional, uses GOOGLE_APPLICATION_CREDENTIALS env var)
+	SpeakingRate    float64 // Speaking speed multiplier (0.25-4.0, default: 1.0)
+	Pitch           float64 // Pitch adjustment in semitones (-20.0 to 20.0, default: 0.0)
+	VolumeGainDb    float64 // Volume gain in decibels (-96.0 to 16.0, default: 0.0)
+}
+
 // Config holds the application configuration
 type Config struct {
 	// Input/Output Options
@@ -83,9 +93,10 @@ type Config struct {
 	Commands CommandFlags
 
 	// TTS Provider Configuration
-	Provider   string           // TTS provider: "say" (macOS) or "elevenlabs" (default: "say")
+	Provider   string           // TTS provider: "say" (macOS), "elevenlabs", or "google" (default: "say")
 	Say        SayConfig        // Say provider configuration
 	ElevenLabs ElevenLabsConfig // ElevenLabs provider configuration
+	Google     GoogleConfig     // Google Cloud TTS provider configuration
 }
 
 // GetDefaultProvider returns the default TTS provider based on the platform.
@@ -120,7 +131,7 @@ func Parse() Config {
 
 	// TTS Provider - auto-detect based on platform
 	defaultProvider := GetDefaultProvider()
-	flag.StringVar(&config.Provider, "provider", defaultProvider, "TTS provider: 'say' (macOS), 'espeak' (Linux), or 'elevenlabs'")
+	flag.StringVar(&config.Provider, "provider", defaultProvider, "TTS provider: 'say' (macOS), 'espeak' (Linux), 'elevenlabs', or 'google'")
 
 	// Say provider options
 	var preset string
@@ -132,6 +143,14 @@ func Parse() Config {
 	flag.StringVar(&config.ElevenLabs.VoiceID, "elevenlabs-voice-id", "", "ElevenLabs voice ID (e.g., '21m00Tcm4TlvDq8ikWAM')")
 	flag.StringVar(&config.ElevenLabs.Model, "elevenlabs-model", "eleven_multilingual_v2", "ElevenLabs model ID")
 	flag.StringVar(&config.ElevenLabs.APIKey, "elevenlabs-api-key", "", "ElevenLabs API key (prefer ELEVENLABS_API_KEY env var)")
+
+	// Google Cloud TTS provider options
+	flag.StringVar(&config.Google.VoiceName, "google-voice", "", "Google Cloud TTS voice name (e.g., 'en-US-Neural2-F')")
+	flag.StringVar(&config.Google.LanguageCode, "google-language", "en-US", "Google Cloud TTS language code (e.g., 'en-US', 'en-GB')")
+	flag.StringVar(&config.Google.CredentialsFile, "google-credentials", "", "Path to Google Cloud service account JSON file (prefer GOOGLE_APPLICATION_CREDENTIALS env var)")
+	flag.Float64Var(&config.Google.SpeakingRate, "google-speed", 1.0, "Google Cloud TTS speaking rate (0.25-4.0, default: 1.0)")
+	flag.Float64Var(&config.Google.Pitch, "google-pitch", 0.0, "Google Cloud TTS pitch adjustment (-20.0 to 20.0, default: 0.0)")
+	flag.Float64Var(&config.Google.VolumeGainDb, "google-volume", 0.0, "Google Cloud TTS volume gain in dB (-96.0 to 16.0, default: 0.0)")
 
 	// Common options
 	flag.StringVar(&config.Format, "format", "aiff", "Output audio format (aiff, m4a, mp3)")
@@ -177,6 +196,20 @@ func Parse() Config {
 		log.Blank()
 		log.Faint("  # List ElevenLabs voices")
 		log.Faint(fmt.Sprintf("  %s -provider elevenlabs -list-voices", os.Args[0]))
+		log.Blank()
+		log.Default("Examples (Google Cloud TTS provider):")
+		log.Faint("  # Use Google Cloud TTS with environment variable")
+		log.Faint("  export GOOGLE_APPLICATION_CREDENTIALS='/path/to/service-account.json'")
+		log.Faint(fmt.Sprintf("  %s -provider google -google-voice en-US-Neural2-F -f script.md", os.Args[0]))
+		log.Blank()
+		log.Faint("  # Use Google Cloud TTS with credentials file flag")
+		log.Faint(fmt.Sprintf("  %s -provider google -google-credentials /path/to/creds.json -google-voice en-GB-Neural2-A -d ./docs", os.Args[0]))
+		log.Blank()
+		log.Faint("  # List Google Cloud TTS voices")
+		log.Faint(fmt.Sprintf("  %s -provider google -list-voices", os.Args[0]))
+		log.Blank()
+		log.Faint("  # Generate MP3 files with Google TTS")
+		log.Faint(fmt.Sprintf("  %s -provider google -google-voice en-US-Neural2-F -format mp3 -d ./docs", os.Args[0]))
 		log.Blank()
 		log.Default("Say Voice Presets:")
 		log.Faint("  british-female, british-male, us-female, us-male,")
@@ -264,8 +297,8 @@ func (c Config) Validate() error {
 	}
 
 	// Validate provider
-	if c.Provider != "say" && c.Provider != "espeak" && c.Provider != "elevenlabs" {
-		return fmt.Errorf("invalid provider %q: must be 'say', 'espeak', or 'elevenlabs'", c.Provider)
+	if c.Provider != "" && c.Provider != "say" && c.Provider != "espeak" && c.Provider != "elevenlabs" && c.Provider != "google" {
+		return fmt.Errorf("invalid provider %q: must be 'say', 'espeak', 'elevenlabs', or 'google'", c.Provider)
 	}
 
 	// Validate provider-specific requirements
@@ -274,6 +307,9 @@ func (c Config) Validate() error {
 			return fmt.Errorf("ElevenLabs voice ID is required: use -elevenlabs-voice-id flag")
 		}
 	}
+
+	// Google Cloud TTS requires credentials (checked at runtime by client)
+	// No validation needed here since credentials can be provided via env var
 
 	return nil
 }
@@ -318,6 +354,20 @@ func (c Config) Print() {
 		// If debugging is needed, check environment variable ELEVENLABS_API_KEY
 		if c.ElevenLabs.APIKey != "" {
 			fmt.Printf("  API Key: %s\n", maskSecret(c.ElevenLabs.APIKey))
+		}
+	case "google":
+		if c.Google.VoiceName != "" {
+			fmt.Printf("  Voice: %s\n", c.Google.VoiceName)
+		}
+		fmt.Printf("  Language: %s\n", c.Google.LanguageCode)
+		if c.Google.SpeakingRate != 1.0 {
+			fmt.Printf("  Speaking Rate: %.2f\n", c.Google.SpeakingRate)
+		}
+		if c.Google.Pitch != 0.0 {
+			fmt.Printf("  Pitch: %.1f\n", c.Google.Pitch)
+		}
+		if c.Google.VolumeGainDb != 0.0 {
+			fmt.Printf("  Volume Gain: %.1f dB\n", c.Google.VolumeGainDb)
 		}
 	}
 
