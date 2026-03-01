@@ -5,7 +5,7 @@ go 1.25.3
 require (
 	github.com/cenkalti/backoff/v5 v5.0.3
 	github.com/fatih/color v1.18.0
-	github.com/mattn/go-sqlite3 v1.14.32
+	github.com/mattn/go-sqlite3 v1.14.34
 	github.com/schollz/progressbar/v3 v3.18.0
 )
 
