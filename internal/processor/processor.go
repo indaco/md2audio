@@ -24,6 +24,7 @@ import (
 	"github.com/indaco/md2audio/internal/logger"
 	"github.com/indaco/md2audio/internal/parser"
 	"github.com/indaco/md2audio/internal/tts/elevenlabs"
+	"github.com/indaco/md2audio/internal/tts/google"
 )
 
 // ProcessDirectory processes all markdown files in a directory recursively
@@ -133,9 +134,14 @@ func processSingleFile(markdownFile, outputDir string, cfg config.Config, log lo
 		return 0, 0, fmt.Errorf("error creating TTS provider: %w", err)
 	}
 
-	// Set logger on provider if it supports it (ElevenLabs client)
+	// Set logger on provider if it supports it
 	if elevenlabsClient, ok := provider.(*elevenlabs.Client); ok {
 		elevenlabsClient.SetLogger(log)
+	}
+	if googleClient, ok := provider.(*google.Client); ok {
+		googleClient.SetLogger(log)
+		// Ensure Google client is closed when done
+		defer func() { _ = googleClient.Close() }()
 	}
 
 	log.Info("Using TTS provider:", provider.Name())
@@ -143,8 +149,11 @@ func processSingleFile(markdownFile, outputDir string, cfg config.Config, log lo
 
 	// Determine voice to use based on provider
 	voice := cfg.Say.Voice
-	if cfg.Provider == "elevenlabs" {
+	switch cfg.Provider {
+	case "elevenlabs":
 		voice = cfg.ElevenLabs.VoiceID
+	case "google":
+		voice = cfg.Google.VoiceName
 	}
 	// espeak uses cfg.Say.Voice (same as say provider)
 
