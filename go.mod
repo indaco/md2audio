@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go/texttospeech v1.16.0
 	github.com/cenkalti/backoff/v5 v5.0.3
 	github.com/fatih/color v1.18.0
-	github.com/mattn/go-sqlite3 v1.14.34
+	github.com/mattn/go-sqlite3 v1.14.52
 	github.com/schollz/progressbar/v3 v3.18.0
 	google.golang.org/api v0.247.0
 )
