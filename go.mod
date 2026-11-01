@@ -5,7 +5,7 @@ go 1.25.3
 require (
 	cloud.google.com/go/texttospeech v1.16.0
 	github.com/cenkalti/backoff/v5 v5.0.3
-	github.com/fatih/color v1.18.0
+	github.com/fatih/color v1.19.0
 	github.com/mattn/go-sqlite3 v1.14.34
 	github.com/schollz/progressbar/v3 v3.18.0
 	google.golang.org/api v0.247.0
@@ -37,7 +37,7 @@ require (
 	golang.org/x/net v0.43.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
-	golang.org/x/sys v0.35.0 // indirect
+	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/term v0.34.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
